@@ -100,10 +100,29 @@ pub trait Connector {
 
 pub struct Credentials {}
 
+#[derive(Debug)]
+pub enum ExchangeApiRoute {
+    Static(String),
+    #[derive(Debug)]
+    Formatable{
+        format: String,
+        values: Vec<String>
+    }
+}
 
+#[derive(Debug)]
 pub struct ExchangeApi {
-    name: String,
-    value: 
+    get: Option<HashMap<String, ExchangeApiRoute>>,
+    post: Option<HashMap<String, ExchangeApiRoute>>,
+}
+
+impl Default for ExchangeApi {
+    fn default() -> ExchangeApi {
+        ExchangeApi {
+            get: None,
+            post: None,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -194,8 +213,36 @@ impl Exchange {
                     _ => {}
                 }
             });
-        } else {
-            return Err(CCXTLoadingError::UndefinedField{ field: String::from("api-urls")}.into())
+        }
+        // Load apis
+        if let Value::Object(api) = &settings["api"] {
+            api.iter().for_each(|(k, value)| {
+                if let Value::Object(method) = value {
+                    let mut newapi = ExchangeApi::default();
+                    method.iter().for_each(|(k, routes)|{
+                        if let Value::Array(routes) = routes {
+                            let new_routes: HashMap<String, ExchangeApiRoute> = HashMap::new();
+                            routes.iter().for_each(|e|{
+                                if let Value::String(e) = e {
+                                    new_routes.insert(e.clone(), ExchangeApiRoute::Static(e.clone())); //TODO parse formate
+                                }
+                            });
+                            match k.clone().as_str() {
+                                "get" => {
+                                    newapi.get = Some(new_routes);
+                                },
+                                "post" => {
+                                    newapi.post = Some(new_routes);
+                                },
+                                _ => {
+                                    println!("Invalide api : {:?}", routes)
+                                }
+                            };
+                        }
+                    });
+                    new_exchange.api.insert(k.clone(), newapi);
+                }
+            });
         }
         Ok(new_exchange)
     }

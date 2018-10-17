@@ -31,6 +31,29 @@ mod tests {
                 },
                 "api-urls": {
                     "api": "https://api.bitfinex.com"
+                },
+                "api": {
+                    "public": {
+                        "get": [
+                            "Exchanges/{pair}/Ticker",
+                            "Exchanges/{pair}/orderbook",
+                            "Exchanges/{pair}/trades",
+                            "Exchanges/{pair}/lasttrades"
+                        ]
+                    },
+                    "private": {
+                        "post": [
+                            "Merchant/CreateCheckout",
+                            "Order/AddCoinFundsRequest",
+                            "Order/AddFund",
+                            "Order/AddOrder",
+                            "Order/AddOrderMarketPriceBuy"
+                        ],
+                        "get": [
+                            "Order/AccountHistory",
+                            "Order/OrderHistory"
+                        ]
+                    }
                 }
             }
             "#);
