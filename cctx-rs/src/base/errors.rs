@@ -3,38 +3,48 @@
 //! 
 
 use failure::Fail;
+use hyper::Error as HyperError;
+use serde_json::Error as SerdeError;
 
-impl Into<CCXTErrors> for i32 {
-    fn into(self) -> CCXTErrors {
+impl Into<CCXTError> for i32 {
+    fn into(self) -> CCXTError {
         match self {
-            422 =>  CCXTErrors::ExchangeError,
-            418 =>  CCXTErrors::DDoSProtection,
-            429 =>  CCXTErrors::DDoSProtection,
-            404 =>  CCXTErrors::ExchangeNotAvailable,
-            409 =>  CCXTErrors::ExchangeNotAvailable,
-            500 =>  CCXTErrors::ExchangeNotAvailable,
-            501 =>  CCXTErrors::ExchangeNotAvailable,
-            502 =>  CCXTErrors::ExchangeNotAvailable,
-            520 =>  CCXTErrors::ExchangeNotAvailable,
-            521 =>  CCXTErrors::ExchangeNotAvailable,
-            522 =>  CCXTErrors::ExchangeNotAvailable,
-            525 =>  CCXTErrors::ExchangeNotAvailable,
-            400 =>  CCXTErrors::ExchangeNotAvailable,
-            403 =>  CCXTErrors::ExchangeNotAvailable,
-            405 =>  CCXTErrors::ExchangeNotAvailable,
-            503 =>  CCXTErrors::ExchangeNotAvailable,
-            530 =>  CCXTErrors::ExchangeNotAvailable,
-            408 =>  CCXTErrors::RequestTimeout,
-            504 =>  CCXTErrors::RequestTimeout,
-            401 =>  CCXTErrors::AuthenticationError,
-            511 =>  CCXTErrors::AuthenticationError,
-            _ => CCXTErrors::Undefined,
+            422 =>  CCXTError::ExchangeError,
+            418 =>  CCXTError::DDoSProtection,
+            429 =>  CCXTError::DDoSProtection,
+            404 =>  CCXTError::ExchangeNotAvailable,
+            409 =>  CCXTError::ExchangeNotAvailable,
+            500 =>  CCXTError::ExchangeNotAvailable,
+            501 =>  CCXTError::ExchangeNotAvailable,
+            502 =>  CCXTError::ExchangeNotAvailable,
+            520 =>  CCXTError::ExchangeNotAvailable,
+            521 =>  CCXTError::ExchangeNotAvailable,
+            522 =>  CCXTError::ExchangeNotAvailable,
+            525 =>  CCXTError::ExchangeNotAvailable,
+            400 =>  CCXTError::ExchangeNotAvailable,
+            403 =>  CCXTError::ExchangeNotAvailable,
+            405 =>  CCXTError::ExchangeNotAvailable,
+            503 =>  CCXTError::ExchangeNotAvailable,
+            530 =>  CCXTError::ExchangeNotAvailable,
+            408 =>  CCXTError::RequestTimeout,
+            504 =>  CCXTError::RequestTimeout,
+            401 =>  CCXTError::AuthenticationError,
+            511 =>  CCXTError::AuthenticationError,
+            _ => CCXTError::Undefined,
         }
     }
 }
 
 #[derive(Debug, Fail)]
-pub enum CCXTErrors {
+pub enum CCXTLoadingError {
+    #[fail(display = "Id is undefined ! {}", field)]
+    UndefinedField {
+        field: String,
+    }
+}
+
+#[derive(Debug, Fail)]
+pub enum CCXTError {    
     #[fail(display = "Undefined error")]
     Undefined,
     
@@ -106,4 +116,16 @@ pub enum CCXTErrors {
 
     #[fail(display = "Raised when an order placed as maker order is fillable immediately as a taker upon request")]
     OrderImmediatelyFillable   
+}
+
+impl From<HyperError> for CCXTError {
+    fn from(err: HyperError) -> CCXTError {
+        CCXTError::BadResponse//Maybe wrong
+    }
+}
+
+impl From<SerdeError> for CCXTError {
+    fn from(err: SerdeError) -> CCXTError {
+        CCXTError::BadResponse
+    }
 }
