@@ -1,0 +1,8 @@
+[package]
+name = "cctx-rs"
+version = "0.1.0"
+authors = ["asyade <acorbeau@student.42.fr>"]
+edition = "2018"
+
+[dependencies]
+failure="0.1.2"
