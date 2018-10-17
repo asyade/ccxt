@@ -56,7 +56,7 @@ mod tests {
                     }
                 }
             }
-            "#);
-        println!("{:?}", exchange);
+            "#).unwrap();
+        exchange.call_api("public", ExchangeApiMethod::Get, "Exchanges/{pair}/lasttrades");
     }
 }

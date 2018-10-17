@@ -116,6 +116,11 @@ pub struct ExchangeApi {
     post: Option<HashMap<String, ExchangeApiRoute>>,
 }
 
+pub enum ExchangeApiMethod {
+    Get,
+    Post,
+}
+
 impl Default for ExchangeApi {
     fn default() -> ExchangeApi {
         ExchangeApi {
@@ -156,6 +161,21 @@ impl Default for Exchange {
 
 impl Exchange {
 
+    pub fn call_api(&self, api: &str, method: ExchangeApiMethod, route: &str) -> Result<(), Error> {
+        if let Some(api) = self.api.get(api) {
+            if let Some(methods) = match method {
+                ExchangeApiMethod::Get => &api.get,
+                ExchangeApiMethod::Post => &api.post,
+            }
+            {
+                if let Some(method) = methods.get(route) {
+                    println!("Called !");
+                    return Ok(())
+                }
+            }
+        }
+        Err(CCXTError::Undefined.into())
+    }
 
     ///
     /// Ex json:
