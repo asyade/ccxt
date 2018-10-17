@@ -1,9 +1,11 @@
 //!
 //! Base exchange traits that will be implemented for all plateformes
 //! 
-use super::http_connector::HTTPConnector;
+use super::http_connector::HttpConnector;
 use super::errors::*;
 
+use std::fmt;
+use std::fmt::{Debug, Display, Formatter};
 use std::collections::HashMap;
 use failure::Error;
 use hyper::rt::{Future};
@@ -13,20 +15,6 @@ use serde_json;
 // pub const USER_AGENTS_CHROME: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36";
 // pub const USER_AGENT_CHROME39: &str = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.71 Safari/537.36";
 // 
-
-///
-/// The generic Exchange wrapper
-/// 
-pub trait ExchangeTrait {
-    fn get_market(&self, symbole: &str);
-    fn load_markets(&self);
-    fn fetch_markets(&self);
-    fn fetch_currencies(&self);
-    fn fetch_ticker(&self);
-    fn fetch_order_book(&self);
-    fn fetch_ohlcv(&self);
-    fn fetch_treads(&self);
-}
 
 ///
 /// Connector is by default an Exchange associated type
@@ -57,7 +45,16 @@ pub enum RequestMethod<'a> {
 
 pub struct Request<'a> {
     pub path: &'a str,
-    pub methode: RequestMethod<'a>
+    pub method: RequestMethod<'a>
+}
+
+impl <'a>Request<'a> {
+    pub fn new(path: &'a str, method: RequestMethod<'a>) -> Self {
+        Request {
+            path,
+            method,
+        }
+    }
 }
 
 ///
@@ -82,20 +79,42 @@ pub struct Credentials {}
 
 
 ///
+///
+/// The generic Exchange wrapper
 /// 
-/// Echange api base
-/// TODO doc
 /// 
-/// 
+
+pub trait ExchangeTrait {
+    fn get_market(&self, symbole: &str);
+    fn load_markets(&self);
+    fn fetch_markets(&self);
+    fn fetch_currencies(&self);
+    fn fetch_ticker(&self);
+    fn fetch_order_book(&self);
+    fn fetch_ohlcv(&self);
+    fn fetch_treads(&self);
+}
 
 
 #[derive(Debug)]
 pub enum ExchangeApiRoute {
     Static(String),
-    #[derive(Debug)]
     Formatable{
         format: String,
         values: Vec<String>
+    }
+}
+
+impl Display for ExchangeApiRoute {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ExchangeApiRoute::Static(value) => {
+                write!(f, "{}", value)
+            },
+            ExchangeApiRoute::Formatable{format, values} => {
+                write!(f, "{}", format)
+            },
+        }
     }
 }
 
@@ -120,7 +139,8 @@ impl Default for ExchangeApi {
 }
 
 #[derive(Debug)]
-pub struct Exchange {
+pub struct Exchange<C: Connector + Debug> {
+    connector: Option<Box<C>>,
     settings: Option<Value>,
     id: String,
     name: String,
@@ -132,10 +152,11 @@ pub struct Exchange {
     certified: bool,
 }
 
-impl Default for Exchange {
-    fn default() -> Exchange{
+impl <C: Debug + Connector>Default for Exchange<C>  {
+    fn default() -> Exchange<C>{
         Exchange {
             ///@TODO Non parsed value, will be deleted
+            connector: None,
             settings: None,
             id: String::new(),
             name: String::new(),
@@ -149,18 +170,27 @@ impl Default for Exchange {
     }
 }
 
-impl Exchange {
+impl <T: Debug + Connector> Exchange<T> {
 
     pub fn call_api(&self, api: &str, method: ExchangeApiMethod, route: &str) -> Result<(), Error> {
-        if let Some(api) = self.api.get(api) {
+        if let Some(api_def) = self.api.get(api) {
             if let Some(methods) = match method {
-                ExchangeApiMethod::Get => &api.get,
-                ExchangeApiMethod::Post => &api.post,
+                ExchangeApiMethod::Get => &api_def.get,
+                ExchangeApiMethod::Post => &api_def.post,
             }
             {
                 if let Some(method) = methods.get(route) {
-                    println!("Called !");
-                    return Ok(())
+                    if let Some(connector) = self.connector.as_ref().as_mut() {
+                        if let Some(api_url) = self.api_urls.get(api) {
+                            let url = format!("{}/{}", api_url, method);
+                            connector.request(Request::new("", RequestMethod::Get(Vec::new())));
+                            return Ok(())
+                        } else {
+                            return Err(CCXTError::ApiUrlNotFound.into());
+                        }
+                    } else {
+                        return Err(CCXTError::ConnectorNotLoaded.into());
+                    }
                 }
             }
         }
@@ -182,7 +212,7 @@ impl Exchange {
     ///     }
     /// }
     /// 
-    pub fn from_json(settings: &str) -> Result<Exchange, Error> {
+    pub fn from_json<C: Debug + Connector>(settings: &str) -> Result<Exchange<C>, Error> {
         let settings: Value = serde_json::from_str(settings)?;
         let mut new_exchange = Exchange::default();
 
@@ -231,7 +261,7 @@ impl Exchange {
                     let mut newapi = ExchangeApi::default();
                     method.iter().for_each(|(k, routes)|{
                         if let Value::Array(routes) = routes {
-                            let new_routes: HashMap<String, ExchangeApiRoute> = HashMap::new();
+                            let mut new_routes: HashMap<String, ExchangeApiRoute> = HashMap::new();
                             routes.iter().for_each(|e|{
                                 if let Value::String(e) = e {
                                     new_routes.insert(e.clone(), ExchangeApiRoute::Static(e.clone())); //TODO parse formate

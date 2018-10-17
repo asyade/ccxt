@@ -47,6 +47,12 @@ pub enum CCXTLoadingError {
 pub enum CCXTError {    
     #[fail(display = "Undefined error")]
     Undefined,
+
+    #[fail(display = "Raised when the requested api can't be found in api_urls")]
+    ApiUrlNotFound,
+
+    #[fail(display = "Raised when connector is not loaded")]
+    ConnectorNotLoaded,
     
     #[fail(display = "Raised when an exchange server replies with an error in JSON")]
     ExchangeError,

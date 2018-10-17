@@ -8,16 +8,17 @@ use std::io;
 use std::io::Write;
 use hyper::{Client, Uri};
 use hyper::rt::{self, Future, Stream};
-use hyper::client::HttpConnector as HyperHTTPConnector;
+use hyper::client::HttpConnector as HyperHttpConnector;
 use serde_json::Value;
 
-pub struct HTTPConnector {
-    client: Client<HyperHTTPConnector>,//TODO https...
+#[derive(Debug)]
+pub struct HttpConnector {
+    client: Client<HyperHttpConnector>,//TODO https...
 }
 
-impl HTTPConnector {
-    pub fn new() -> HTTPConnector {
-        HTTPConnector {
+impl HttpConnector {
+    pub fn new() -> HttpConnector {
+        HttpConnector {
             client: Client::new(),
         }
     }
@@ -32,7 +33,7 @@ impl HTTPConnector {
     }
 }
 
-impl Connector for HTTPConnector {
+impl Connector for HttpConnector {
 
     fn request(&self, request: Request) -> Result<ConnectorFuture<RequestResponse>, Error> {
         let url: Uri = request.path.parse()?;
