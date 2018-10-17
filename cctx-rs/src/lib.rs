@@ -21,7 +21,7 @@ mod tests {
 
     #[test]
     fn test_plateform() {
-        let exchange : Exchange<HttpConnector> = Exchange::<HttpConnector>::from_json(r#"
+        let mut exchange : Exchange<HttpConnector> = Exchange::<HttpConnector>::from_json(r#"
             {
                 "id": "bitfinex",
                 "name": "Bitfinex",
@@ -30,7 +30,8 @@ mod tests {
                     "www": "https://www.bitfinex.com"
                 },
                 "api-urls": {
-                    "api": "https://api.bitfinex.com"
+                    "public": "https://api.bitfinex.com",
+                    "private": "https://api.bitfinex.com"
                 },
                 "api": {
                     "public": {
@@ -57,6 +58,7 @@ mod tests {
                 }
             }
             "#).unwrap();
+        exchange.set_connector(Box::new(HttpConnector::new()));
         exchange.call_api("public", ExchangeApiMethod::Get, "Exchanges/{pair}/lasttrades");
     }
 }

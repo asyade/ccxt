@@ -36,6 +36,7 @@ impl HttpConnector {
 impl Connector for HttpConnector {
 
     fn request(&self, request: Request) -> Result<ConnectorFuture<RequestResponse>, Error> {
+        println!("Hello {}", request.path);
         let url: Uri = request.path.parse()?;
         match request.method {
             RequestMethod::Get(params) => {

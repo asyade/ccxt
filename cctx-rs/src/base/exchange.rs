@@ -99,9 +99,28 @@ pub trait ExchangeTrait {
 #[derive(Debug)]
 pub enum ExchangeApiRoute {
     Static(String),
-    Formatable{
-        format: String,
-        values: Vec<String>
+    Formatable(String),
+}
+
+impl ExchangeApiRoute {
+    pub fn get_str(&self, params: &[&str]) -> String {
+        match self {
+            ExchangeApiRoute::Static(s) => s.clone(),
+            ExchangeApiRoute::Formatable(format) => {
+                let mut value = String::new();
+                let mut varname: Option<String> = None;
+                let mut param_index: usize = 0;
+                format.chars().enumerate().for_each(|(index, c)| {
+                    if varname.is_none() && c != '{' {
+                        value.push(c);
+                    } else if c == '}' {
+                        varname = None;
+                        value.push_str(params[param_index])
+                    }
+                });
+                value
+            }
+        }
     }
 }
 
@@ -111,7 +130,7 @@ impl Display for ExchangeApiRoute {
             ExchangeApiRoute::Static(value) => {
                 write!(f, "{}", value)
             },
-            ExchangeApiRoute::Formatable{format, values} => {
+            ExchangeApiRoute::Formatable(format) => {
                 write!(f, "{}", format)
             },
         }
@@ -196,6 +215,10 @@ impl <T: Debug + Connector> Exchange<T> {
         Err(CCXTError::Undefined.into())
     }
 
+    pub fn set_connector(&mut self, connector: Box<T>) {
+        self.connector = Some(connector);
+    }
+
     ///
     /// Ex json:
     /// {
@@ -263,7 +286,13 @@ impl <T: Debug + Connector> Exchange<T> {
                             let mut new_routes: HashMap<String, ExchangeApiRoute> = HashMap::new();
                             routes.iter().for_each(|e|{
                                 if let Value::String(e) = e {
-                                    new_routes.insert(e.clone(), ExchangeApiRoute::Static(e.clone())); //TODO parse formate
+                                    new_routes.insert(e.clone(), {
+                                        if e.contains("{") {
+                                            ExchangeApiRoute::Formatable(e.clone())
+                                        } else {
+                                            ExchangeApiRoute::Static(e.clone())
+                                        }
+                                    });
                                 }
                             });
                             match k.clone().as_str() {
