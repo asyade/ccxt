@@ -182,8 +182,7 @@ impl <T: Debug + Connector> Exchange<T> {
                 if let Some(method) = methods.get(route) {
                     if let Some(connector) = self.connector.as_ref().as_mut() {
                         if let Some(api_url) = self.api_urls.get(api) {
-                            let url = format!("{}/{}", api_url, method);
-                            connector.request(Request::new("", RequestMethod::Get(Vec::new())));
+                            connector.request(Request::new(&format!("{}/{}", api_url, method), RequestMethod::Get(Vec::new())));
                             return Ok(())
                         } else {
                             return Err(CCXTError::ApiUrlNotFound.into());

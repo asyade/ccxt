@@ -37,7 +37,7 @@ impl Connector for HttpConnector {
 
     fn request(&self, request: Request) -> Result<ConnectorFuture<RequestResponse>, Error> {
         let url: Uri = request.path.parse()?;
-        match request.methode {
+        match request.method {
             RequestMethod::Get(params) => {
                 let future = self.fetch_json(url); 
             },
