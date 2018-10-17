@@ -21,7 +21,7 @@ mod tests {
 
     #[test]
     fn test_plateform() {
-        let exchange = Exchange::from_json(r#"
+        let exchange : Exchange<HttpConnector> = Exchange::<HttpConnector>::from_json(r#"
             {
                 "id": "bitfinex",
                 "name": "Bitfinex",
