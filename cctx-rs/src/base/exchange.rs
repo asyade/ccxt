@@ -101,6 +101,11 @@ pub trait Connector {
 pub struct Credentials {}
 
 
+pub struct ExchangeApi {
+    name: String,
+    value: 
+}
+
 #[derive(Debug)]
 pub struct Exchange {
     settings: Option<Value>,
@@ -109,7 +114,7 @@ pub struct Exchange {
     countries: Vec<String>,
     urls: HashMap<String, String>,
     api_urls: HashMap<String, String>,
-    api: HashMap<String, String>,
+    api: HashMap<String, ExchangeApi>,
     rate_limit: Option<u32>,
     certified: bool,
 }
