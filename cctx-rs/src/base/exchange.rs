@@ -1,6 +1,14 @@
 //!
 //! Base exchange traits that will be implemented for all plateformes
 //! 
+use super::http_connector::HTTPConnector;
+use super::errors::*;
+
+use std::collections::HashMap;
+use failure::Error;
+use hyper::rt::{Future};
+use serde_json::value::Value;
+use serde_json;
 
 // pub const USER_AGENTS_CHROME: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36";
 // pub const USER_AGENT_CHROME39: &str = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.71 Safari/537.36";
@@ -45,7 +53,7 @@
 ///
 /// The generic Exchange wrapper
 /// 
-pub trait Exchange {
+pub trait ExchangeTrait {
     fn get_market(&self, symbole: &str);
     fn load_markets(&self);
     fn fetch_markets(&self);
@@ -64,11 +72,6 @@ pub trait Exchange {
 
 pub trait RequestBody {}
 
-pub enum RequestApi {
-    Public,
-    Private,
-}
-
 pub struct RequestParam<'a> {
     key: &'a str,
     value: &'a str,
@@ -80,29 +83,116 @@ pub enum RequestMethod<'a> {
 }
 
 pub struct Request<'a> {
-    path: &'a str,
-    methode: RequestMethod<'a>
+    pub path: &'a str,
+    pub methode: RequestMethod<'a>
 }
 
+pub enum RequestResponse {
+    Error,
+    Success(Value),
+}
+
+
+pub type ConnectorFuture<T> = Box<Future<Item=T, Error=Error>>;
 pub trait Connector {
-    fn request(&self, request: Request);
+    fn request(&self, request: Request) -> Result<ConnectorFuture<RequestResponse>, Error>;
 }
 
 pub struct Credentials {}
 
-pub trait Plateform {
-    type Connector: Connector = HTTPConnector;
-    fn get_creds(&self) -> Credentials;
-    fn get_connector(&self) -> &Connector;
+
+#[derive(Debug)]
+pub struct Exchange {
+    settings: Option<Value>,
+    id: String,
+    name: String,
+    countries: Vec<String>,
+    urls: HashMap<String, String>,
+    api_urls: HashMap<String, String>,
+    api: HashMap<String, String>,
+    rate_limit: Option<u32>,
+    certified: bool,
 }
 
-impl Exchange for Plateform {
-    fn get_market(&self, symbole: &str) { unimplemented!() }
-    fn load_markets(&self) { unimplemented!() }
-    fn fetch_markets(&self) { unimplemented!() }
-    fn fetch_currencies(&self) { unimplemented!() }
-    fn fetch_ticker(&self) { unimplemented!() }
-    fn fetch_order_book(&self) { unimplemented!() }
-    fn fetch_ohlcv(&self) { unimplemented!() }
-    fn fetch_treads(&self) { unimplemented!() }
+impl Default for Exchange {
+    fn default() -> Exchange{
+        Exchange {
+            settings: None,
+            id: String::new(),
+            name: String::new(),
+            countries: Vec::new(),
+            urls: HashMap::new(),
+            api_urls: HashMap::new(),
+            api: HashMap::new(),
+            rate_limit: None,
+            certified: false,
+        }
+    }
+}
+
+impl Exchange {
+
+
+    ///
+    /// Ex json:
+    /// {
+    ///     "id": "my-id",
+    ///     "name": "my-name",
+    ///     "urls": {
+    ///         "url1": "www.231",   
+    ///         "url2": "www.989",  
+    ///     }
+    ///     "api_urls": {
+    ///         "url1": "www.231",   
+    ///         "url2": "www.989",  
+    ///     }
+    /// }
+    /// 
+    pub fn from_json(settings: &str) -> Result<Exchange, Error> {
+        let settings: Value = serde_json::from_str(settings)?;
+        let mut new_exchange = Exchange::default();
+
+        println!("Generating exhcange ...");
+        //Load id
+        if !settings.is_object() {return Err(CCXTError::Undefined.into())}
+        if let Value::String(id) = &settings["id"] {
+            new_exchange.id = id.clone();
+        } else {
+            return Err(CCXTLoadingError::UndefinedField{ field: String::from("id")}.into())
+        }
+        //Load name
+        if let Value::String(name) = &settings["name"] {
+            new_exchange.name = name.clone();
+        } else {
+            return Err(CCXTLoadingError::UndefinedField{ field: String::from("id")}.into())
+        }
+        //Load urls 
+        if let Value::Object(urls) = &settings["urls"] {
+            urls.iter().for_each(|(k, value)| {
+                match value {
+                    Value::String(o) => {
+                        new_exchange.urls.insert(k.clone(), o.clone());
+                    },
+                    _ => {}
+                }
+            });
+        } else {
+            return Err(CCXTLoadingError::UndefinedField{ field: String::from("urls")}.into())
+        }
+        // Load api urls
+        if let Value::Object(urls) = &settings["api-urls"] {
+            urls.iter().for_each(|(k, value)| {
+                match value {
+                    Value::String(o) => {
+                        new_exchange.api_urls.insert(k.clone(), o.clone());
+                    },
+                    _ => {}
+                }
+            });
+        } else {
+            return Err(CCXTLoadingError::UndefinedField{ field: String::from("api-urls")}.into())
+        }
+        Ok(new_exchange)
+    }
+
 }
