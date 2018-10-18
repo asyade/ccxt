@@ -8,6 +8,7 @@ use serde_json::Error as SerdeError;
 
 impl Into<CCXTError> for i32 {
     fn into(self) -> CCXTError {
+        println!("Recievedf {}", self);
         match self {
             422 =>  CCXTError::ExchangeError,
             418 =>  CCXTError::DDoSProtection,

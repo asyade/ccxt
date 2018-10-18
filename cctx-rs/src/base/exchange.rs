@@ -87,19 +87,25 @@ pub struct Credentials {}
 /// 
 /// 
 
+pub type CCXTFut<T> = Box<Future<Item=T, Error=CCXTError>>;
+
+pub struct LoadMarketsResult {
+
+}
+
 pub trait ExchangeTrait {
-    fn get_market(&self, symbole: &str);
-    fn load_markets(&self);
-    fn fetch_markets(&self);
-    fn fetch_currencies(&self);
-    fn fetch_ticker(&self);
-    fn fetch_order_book(&self);
-    fn fetch_ohlcv(&self);
-    fn fetch_treads(&self);
+    //fn get_market(&self, symbole: &str);
+    fn load_markets(&mut self) -> CCXTFut<LoadMarketsResult>;
+    //fn fetch_markets(&self);
+    //fn fetch_currencies(&self);
+    //fn fetch_ticker(&self);
+    //fn fetch_order_book(&self);
+    //fn fetch_ohlcv(&self);
+    //fn fetch_treads(&self);
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ExchangeApiRoute {
     Static(String),
     Formatable(String),
@@ -143,7 +149,7 @@ impl Display for ExchangeApiRoute {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExchangeApi {
     get: Option<HashMap<String, ExchangeApiRoute>>,
     post: Option<HashMap<String, ExchangeApiRoute>>,
@@ -163,8 +169,8 @@ impl Default for ExchangeApi {
     }
 }
 
-#[derive(Debug)]
-pub struct Exchange<C: Connector + Debug> {
+#[derive(Debug, Clone)]
+pub struct Exchange<C: Connector + Debug + Clone> {
     connector: Option<Box<C>>,
     settings: Option<Value>,
     id: String,
@@ -177,7 +183,7 @@ pub struct Exchange<C: Connector + Debug> {
     certified: bool,
 }
 
-impl <C: Debug + Connector>Default for Exchange<C>  {
+impl <C: Debug + Connector + Clone>Default for Exchange<C>  {
     fn default() -> Exchange<C>{
         Exchange {
             ///@TODO Non parsed value, will be deleted
@@ -195,7 +201,7 @@ impl <C: Debug + Connector>Default for Exchange<C>  {
     }
 }
 
-impl <T: Debug + Connector> Exchange<T> {
+impl <T: Debug + Connector + Clone> Exchange<T> {
 
     pub fn call_api(&self, api: &str, method: ExchangeApiMethod, route: &str, params: &[&str]) -> ConnectorFuture<Value> {
         // Get api definition from given api name and check if it's None
@@ -248,7 +254,7 @@ impl <T: Debug + Connector> Exchange<T> {
     ///     }
     /// }
     /// 
-    pub fn from_json<C: Debug + Connector>(settings: &str) -> Result<Exchange<C>, Error> {
+    pub fn from_json<C: Debug + Connector + Clone>(settings: &str) -> Result<Exchange<C>, Error> {
         let settings: Value = serde_json::from_str(settings)?;
         let mut new_exchange = Exchange::default();
 

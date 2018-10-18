@@ -12,7 +12,7 @@ use hyper::client::HttpConnector as HyperHttpConnector;
 use hyper_tls::HttpsConnector;
 use serde_json::Value;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HttpConnector {
     client: Client<HttpsConnector<HyperHttpConnector>>,//TODO https...
 }
@@ -42,12 +42,12 @@ impl Connector for HttpConnector {
                         .get(request.path)
                         .and_then(|res| res.into_body().concat2())
                         .map_err(|e| {
-                            println!("{}", e);
+                            println!("@@ Send error : {}", e);
                             CCXTError::Undefined
                         })
                         .and_then(|body| Ok(serde_json::from_slice(&body)?))
                         .map_err(|e| {
-                            println!("{}", e);
+                            println!("@@ Send error : {}", e);
                             CCXTError::ApiUrlMalformated.into()
                         })
             }
