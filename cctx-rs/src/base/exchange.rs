@@ -91,8 +91,23 @@ pub struct Credentials {}
 
 pub type CCXTFut<T> = Box<Future<Item=T, Error=Error> + Send>;
 
-pub struct LoadMarketsResult {
+pub enum CCXTSymbol {
+    Undefined,
+}
 
+pub struct Market {
+    pub id: String,
+    pub symbol: CCXTSymbol,
+    pub baseId: usize,
+    pub quoteId: usize,
+    pub active: bool,
+    pub precision: (f64,f64),
+    pub limits: (f64, f64),
+    pub info: Value,
+}
+
+pub struct LoadMarketsResult {
+    pub markets: HashMap<String, Market>
 }
 
 pub trait ExchangeTrait {
