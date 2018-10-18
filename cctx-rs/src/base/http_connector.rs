@@ -4,10 +4,8 @@
 use super::exchange::*;
 use super::errors::*;
 use failure::Error;
-use std::io;
-use std::io::Write;
-use hyper::{Client, Uri};
-use hyper::rt::{self, Future, Stream};
+use hyper::{Client};
+use hyper::rt::{Future, Stream};
 use hyper::client::HttpConnector as HyperHttpConnector;
 use hyper_tls::HttpsConnector;
 use serde_json::Value;
