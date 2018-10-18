@@ -14,17 +14,16 @@ use serde_json::Value;
 
 #[derive(Debug, Clone)]
 pub struct HttpConnector {
-    client: Client<HttpsConnector<HyperHttpConnector>>,//TODO https...
+    client: Client<HttpsConnector<HyperHttpConnector>>,
 }
 
 impl HttpConnector {
     pub fn new() -> HttpConnector {
-        let https = HttpsConnector::new(4).unwrap();//TODO se how many blocking dns thread we want
+        let https = HttpsConnector::new(4).unwrap();//TODO see how many blocking dns thread we want
         HttpConnector {
             client: Client::builder().build::<_, hyper::Body>(https)
         }
     }
-
 }
 
 impl From<CCXTError> for Box<Error> {
