@@ -113,7 +113,7 @@ impl ExchangeApiRoute {
                 let mut value = String::new();
                 let mut varname: Option<String> = None;
                 let mut param_index: usize = 0;
-                format.chars().enumerate().for_each(|(index, c)| {
+                format.chars().enumerate().for_each(|(_, c)| {
                     if varname.is_none() && c != '{' {
                         value.push(c);
                     } else if c == '{' {
@@ -121,6 +121,7 @@ impl ExchangeApiRoute {
                     } else if c == '}' {
                         varname = None;
                         if param_index < params.len() {value.push_str(params[param_index])}
+                        param_index += 1;
                     }
                 });
                 value
