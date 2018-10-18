@@ -23,29 +23,25 @@ impl HttpConnector {
         }
     }
 
-    fn fetch_json(&self, url: hyper::Uri) -> impl Future<Item=Value, Error=CCXTError> {
-        self.client
-            .get(url)
-            .and_then(|res| res.into_body().concat2())
-            .from_err::<CCXTError>()
-            .and_then(|body| Ok(serde_json::from_slice(&body)?))
-            .from_err()
+}
+
+impl From<CCXTError> for Box<Error> {
+    fn from(error: CCXTError) -> Box<Error> {
+        Box::new(error.into())
     }
 }
 
 impl Connector for HttpConnector {
-
-    fn request(&self, request: Request) -> Result<ConnectorFuture<RequestResponse>, Error> {
-        println!("Hello {}", request.path);
-        let url: Uri = request.path.parse()?;
-        match request.method {
-            RequestMethod::Get(params) => {
-                let future = self.fetch_json(url); 
-            },
-            RequestMethod::Post(params, body) => {
-
+    fn request(&self, request: Request) -> ConnectorFuture<Value> {
+        Box::new(match request.method {
+            _ => {
+                self.client
+                        .get(request.path)
+                        .and_then(|res| res.into_body().concat2())
+                        .from_err::<CCXTError>()
+                        .and_then(|body| Ok(serde_json::from_slice(&body)?))
+                        .from_err()
             }
-        }        
-        unimplemented!()
+        })
     }
 }

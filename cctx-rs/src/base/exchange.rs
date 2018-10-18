@@ -9,8 +9,11 @@ use std::fmt::{Debug, Display, Formatter};
 use std::collections::HashMap;
 use failure::Error;
 use hyper::rt::{Future};
+use futures::future::{ok, err};
 use serde_json::value::Value;
 use serde_json;
+use hyper::Uri;
+use hyper;
 
 // pub const USER_AGENTS_CHROME: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36";
 // pub const USER_AGENT_CHROME39: &str = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.71 Safari/537.36";
@@ -44,14 +47,14 @@ pub enum RequestMethod<'a> {
 }
 
 pub struct Request<'a> {
-    pub path: &'a str,
+    pub path: hyper::Uri,
     pub method: RequestMethod<'a>
 }
 
 impl <'a>Request<'a> {
-    pub fn new(path: &'a str, method: RequestMethod<'a>) -> Self {
+    pub fn new(path: Uri, method: RequestMethod<'a>) -> Self {
         Request {
-            path,
+            path: path,
             method,
         }
     }
@@ -66,10 +69,10 @@ pub enum RequestResponse {
     Success(Value),
 }
 
-pub type ConnectorFuture<T> = Box<Future<Item=T, Error=Error>>;
+pub type ConnectorFuture<T> = Box<Future<Item=T, Error=Error> + Send>;
 
 pub trait Connector {
-    fn request(&self, request: Request) -> Result<ConnectorFuture<RequestResponse>, Error>;
+    fn request(&self, request: Request) -> ConnectorFuture<Value>;
 }
 
 ///
@@ -113,9 +116,11 @@ impl ExchangeApiRoute {
                 format.chars().enumerate().for_each(|(index, c)| {
                     if varname.is_none() && c != '{' {
                         value.push(c);
+                    } else if c == '{' {
+                        varname = Some(String::new());
                     } else if c == '}' {
                         varname = None;
-                        value.push_str(params[param_index])
+                        if param_index < params.len() {value.push_str(params[param_index])}
                     }
                 });
                 value
@@ -191,7 +196,7 @@ impl <C: Debug + Connector>Default for Exchange<C>  {
 
 impl <T: Debug + Connector> Exchange<T> {
 
-    pub fn call_api(&self, api: &str, method: ExchangeApiMethod, route: &str) -> Result<(), Error> {
+    pub fn call_api(&self, api: &str, method: ExchangeApiMethod, route: &str, params: &[&str]) -> ConnectorFuture<Value> {
         if let Some(api_def) = self.api.get(api) {
             if let Some(methods) = match method {
                 ExchangeApiMethod::Get => &api_def.get,
@@ -201,18 +206,20 @@ impl <T: Debug + Connector> Exchange<T> {
                 if let Some(method) = methods.get(route) {
                     if let Some(connector) = self.connector.as_ref().as_mut() {
                         if let Some(api_url) = self.api_urls.get(api) {
-                            connector.request(Request::new(&format!("{}/{}", api_url, method), RequestMethod::Get(Vec::new())));
-                            return Ok(())
+                            connector.request(Request::new(format!("{}/{}",
+                                                                        api_url,
+                                                                        method.get_str(params)).parse().unwrap(),
+                                                                        RequestMethod::Get(Vec::new()))); 
                         } else {
-                            return Err(CCXTError::ApiUrlNotFound.into());
+                            return Box::from(err(CCXTError::ApiUrlNotFound.into()))
                         }
                     } else {
-                        return Err(CCXTError::ConnectorNotLoaded.into());
+                        return Box::from(err(CCXTError::ConnectorNotLoaded.into()));
                     }
                 }
             }
         }
-        Err(CCXTError::Undefined.into())
+        Box::from(err(CCXTError::Undefined.into()))
     }
 
     pub fn set_connector(&mut self, connector: Box<T>) {

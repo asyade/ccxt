@@ -6,9 +6,18 @@
 extern crate serde_derive;
 extern crate serde_json;
 
+extern crate tokio;
+extern crate tokio_core;
+extern crate tokio_reactor;
+
 extern crate failure;
 extern crate futures;
+
+use futures::future::{ok, err};
+use futures::prelude::*;
 extern crate hyper;
+
+use tokio::prelude::*;
 
 mod base;
 
@@ -18,6 +27,7 @@ mod test_plateform;
 mod tests {
     use super::base::exchange::*;
     use super::base::http_connector::*;
+    
 
     #[test]
     fn test_plateform() {
@@ -59,6 +69,7 @@ mod tests {
             }
             "#).unwrap();
         exchange.set_connector(Box::new(HttpConnector::new()));
-        exchange.call_api("public", ExchangeApiMethod::Get, "Exchanges/{pair}/lasttrades");
+        let fut = exchange.call_api("public", ExchangeApiMethod::Get, "Exchanges/{pair}/lasttrades", &["Pair01"]);
+       //    tokio::run(fut);
     }
 }
