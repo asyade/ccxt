@@ -20,9 +20,11 @@ use hyper;
 // 
 
 ///
+///
 /// Connector is by default an Exchange associated type
 /// It make connection betwen Exchanger and target plateforme
 /// For now there is only an http connector but we can add more like WebSocket connector
+/// 
 /// 
 
 ///
@@ -87,7 +89,7 @@ pub struct Credentials {}
 /// 
 /// 
 
-pub type CCXTFut<T> = Box<Future<Item=T, Error=CCXTError> + Send>;
+pub type CCXTFut<T> = Box<Future<Item=T, Error=Error> + Send>;
 
 pub struct LoadMarketsResult {
 
@@ -155,7 +157,7 @@ pub struct ExchangeApi {
     post: Option<HashMap<String, ExchangeApiRoute>>,
 }
 
-pub enum ExchangeApiMethod {
+pub enum ApiMethod {
     Get,
     Post,
 }
@@ -203,15 +205,15 @@ impl <C: Debug + Connector + Clone>Default for Exchange<C>  {
 
 impl <T: Debug + Connector + Clone> Exchange<T> {
 
-    pub fn call_api(&self, api: &str, method: ExchangeApiMethod, route: &str, params: &[&str]) -> ConnectorFuture<Value> {
+    pub fn call_api(&self, api: &str, method: ApiMethod, route: &str, params: &[&str]) -> ConnectorFuture<Value> {
         // Get api definition from given api name and check if it's None
         let api_def = self.api.get(api);
         if api_def.is_none() { return Box::new(err(CCXTError::ApiUrlNotFound.into())) }
         let api_def = api_def.unwrap();
         // Now we can get methods (like get, post, put) contained into the api definition
         let methods = match method {
-            ExchangeApiMethod::Get => &api_def.get,
-            ExchangeApiMethod::Post => &api_def.post,
+            ApiMethod::Get => &api_def.get,
+            ApiMethod::Post => &api_def.post,
         };
         if methods.is_none() { return Box::new(err(CCXTError::ApiMethodNotFound.into())) }
         // If we're sure that the method exist looking for the wanted route

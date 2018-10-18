@@ -1,5 +1,7 @@
 use std::sync::Once;
 use super::prelude::*;
+use futures::Future;
+use futures::future::{ok, err};
 
 static INIT: Once = Once::new();
 static mut BITFINEX_EXCHANGE: Option<Exchange<HttpConnector>> = None;
@@ -52,7 +54,12 @@ impl Bitfinex {
 impl ExchangeTrait for Bitfinex {
 
     fn load_markets(&mut self) -> CCXTFut<LoadMarketsResult>{
-        unimplemented!()
+        Box::new(self.exchange.call_api("public", ApiMethod::Get, "symbols_details", &[])
+            .and_then(|re| {
+                let result = LoadMarketsResult{};
+                println!("{:?}", re);
+                ok(result)
+            }))
     }
 
 }
@@ -69,22 +76,10 @@ mod tests {
     fn test_plateform() {
         let mut exchange: Bitfinex = Bitfinex::new();
 
-
         rt::run(future::lazy(move||{
             exchange.load_markets()
                     .map(|_|{})
                     .map_err(|_|{})
         }));
-
-
-        // let mut fut = exchange.call_api("public", ExchangeApiMethod::Get, "symbols_details", &[]);
-        // rt::run(future::lazy(move|| {
-                                        // fut.map_err(|e|{ 
-                                            // println!("future : {}", e);
-                                        // })
-                                        // .map(|value|{
-                                            // println!("result {:?}", value);
-                                        // })
-                                    // }));
     }
 }
