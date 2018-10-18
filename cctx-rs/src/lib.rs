@@ -14,6 +14,8 @@ extern crate failure;
 extern crate futures;
 
 extern crate hyper;
+extern crate hyper_tls;
+
 use futures::future::{ok, err};
 use hyper::rt;
 

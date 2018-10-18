@@ -9,17 +9,19 @@ use std::io::Write;
 use hyper::{Client, Uri};
 use hyper::rt::{self, Future, Stream};
 use hyper::client::HttpConnector as HyperHttpConnector;
+use hyper_tls::HttpsConnector;
 use serde_json::Value;
 
 #[derive(Debug)]
 pub struct HttpConnector {
-    client: Client<HyperHttpConnector>,//TODO https...
+    client: Client<HttpsConnector<HyperHttpConnector>>,//TODO https...
 }
 
 impl HttpConnector {
     pub fn new() -> HttpConnector {
+        let https = HttpsConnector::new(4).unwrap();//TODO se how many blocking dns thread we want
         HttpConnector {
-            client: Client::new(),
+            client: Client::builder().build::<_, hyper::Body>(https)
         }
     }
 
