@@ -87,7 +87,7 @@ pub struct Credentials {}
 /// 
 /// 
 
-pub type CCXTFut<T> = Box<Future<Item=T, Error=CCXTError>>;
+pub type CCXTFut<T> = Box<Future<Item=T, Error=CCXTError> + Send>;
 
 pub struct LoadMarketsResult {
 
@@ -282,8 +282,6 @@ impl <T: Debug + Connector + Clone> Exchange<T> {
                     _ => {}
                 }
             });
-        } else {
-            return Err(CCXTLoadingError::UndefinedField{ field: String::from("urls")}.into())
         }
         // Load api urls
         if let Value::Object(urls) = &settings["api-urls"] {
