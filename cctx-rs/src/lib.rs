@@ -13,9 +13,9 @@ extern crate tokio_reactor;
 extern crate failure;
 extern crate futures;
 
-use futures::future::{ok, err};
-use futures::prelude::*;
 extern crate hyper;
+use futures::future::{ok, err};
+use hyper::rt;
 
 use tokio::prelude::*;
 
@@ -27,10 +27,13 @@ mod test_plateform;
 mod tests {
     use super::base::exchange::*;
     use super::base::http_connector::*;
-    
+    use hyper::rt;
+    use futures::Future;
+    use futures::future;
 
     #[test]
     fn test_plateform() {
+
         let mut exchange : Exchange<HttpConnector> = Exchange::<HttpConnector>::from_json(r#"
             {
                 "id": "bitfinex",
@@ -69,7 +72,15 @@ mod tests {
             }
             "#).unwrap();
         exchange.set_connector(Box::new(HttpConnector::new()));
-        let fut = exchange.call_api("public", ExchangeApiMethod::Get, "Exchanges/{pair}/lasttrades", &["Pair01"]);
-       //    tokio::run(fut);
+        println!("{:?}", exchange);
+        let mut fut = exchange.call_api("private", ExchangeApiMethod::Post, "Order/AddFund", &["Pair01"]);
+        rt::run(future::lazy(move|| {
+                                        fut.map_err(|e|{ 
+                                            println!("Error : {}", e);
+                                        })
+                                        .map(|value|{
+                                            println!("result {:?}", value);
+                                        })
+                                    }));
     }
 }

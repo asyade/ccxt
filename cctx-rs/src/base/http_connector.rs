@@ -33,14 +33,21 @@ impl From<CCXTError> for Box<Error> {
 
 impl Connector for HttpConnector {
     fn request(&self, request: Request) -> ConnectorFuture<Value> {
+        println!("@@ Send -> {:?}", request.path);
         Box::new(match request.method {
             _ => {
                 self.client
                         .get(request.path)
                         .and_then(|res| res.into_body().concat2())
-                        .from_err::<CCXTError>()
+                        .map_err(|e| {
+                            println!("{}", e);
+                            CCXTError::Undefined
+                        })
                         .and_then(|body| Ok(serde_json::from_slice(&body)?))
-                        .from_err()
+                        .map_err(|e| {
+                            println!("{}", e);
+                            CCXTError::ApiUrlMalformated.into()
+                        })
             }
         })
     }

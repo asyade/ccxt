@@ -30,7 +30,7 @@ impl Into<CCXTError> for i32 {
             504 =>  CCXTError::RequestTimeout,
             401 =>  CCXTError::AuthenticationError,
             511 =>  CCXTError::AuthenticationError,
-            _ => CCXTError::Undefined,
+            _ => CCXTError::BadResponse,
         }
     }
 }
@@ -48,8 +48,14 @@ pub enum CCXTError {
     #[fail(display = "Undefined error")]
     Undefined,
 
+    #[fail(display = "Raised when te requested uri is malformated")]
+    ApiUrlMalformated,
+
     #[fail(display = "Raised when the requested api can't be found in api_urls")]
     ApiUrlNotFound,
+
+    #[fail(display = "Raised when the requested api method is undefined")]
+    ApiMethodNotFound,
 
     #[fail(display = "Raised when connector is not loaded")]
     ConnectorNotLoaded,
