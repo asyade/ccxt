@@ -35,7 +35,7 @@ impl Bitfinex {
                                 "today",
                                 "trades/{symbol}"
                             ]
-                        },
+                        }
                     }
                 }
             "#).unwrap())
@@ -62,10 +62,20 @@ impl ExchangeTrait for Bitfinex {
 mod tests {
     use hyper::rt;
     use super::Bitfinex;
-
+    use futures::future;
+    use futures::Future;
+    use crate::base::exchange::ExchangeTrait;
     #[test]
     fn test_plateform() {
-        let exchange: Bitfinex = Bitfinex::new();
+        let mut exchange: Bitfinex = Bitfinex::new();
+
+
+        rt::run(future::lazy(move||{
+            exchange.load_markets()
+                    .map(|_|{})
+                    .map_err(|_|{})
+        }));
+
 
         // let mut fut = exchange.call_api("public", ExchangeApiMethod::Get, "symbols_details", &[]);
         // rt::run(future::lazy(move|| {
