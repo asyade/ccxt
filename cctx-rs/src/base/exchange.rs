@@ -218,38 +218,36 @@ impl <C: Debug + Connector + Clone>Default for Exchange<C>  {
     }
 }
 
+macro_rules! value_into{
+    ($value:expr, $type: ty = String) => ($value.as_str().ok_or(CCXTError::Undefined)?)
+}
+
+impl <T>Exchange<T> where T: Connector + Debug + Clone {
+
+    fn parse_api_call(&self, api: &str, method: ApiMethod, route: &str, params: &[&str]) -> Result<Request, Error> {
+        let api_def = self.api.get(api).ok_or(CCXTError::ApiUrlNotFound)?;
+        let method = match method {
+            ApiMethod::Get => &api_def.get,
+            ApiMethod::Post => &api_def.post,            
+        }
+            .as_ref()
+            .ok_or(CCXTError::ApiUrlNotFound)?
+            .get(route)
+            .ok_or(CCXTError::ApiMethodNotFound)?;
+
+        let api_url = self.api_urls.get(api).ok_or(CCXTError::ApiUrlNotFound)?;
+        let url = format!("{}/{}", api_url, method.get_str(params)).parse()?;
+        Ok(Request::new(url, RequestMethod::Get(Vec::new())))
+    }
+
+}
+
 impl <T: Debug + Connector + Clone> Exchange<T> {
 
     pub fn call_api(&self, api: &str, method: ApiMethod, route: &str, params: &[&str]) -> ConnectorFuture<Value> {
-        // Get api definition from given api name and check if it's None
-        let api_def = self.api.get(api);
-        if api_def.is_none() { return Box::new(err(CCXTError::ApiUrlNotFound.into())) }
-        let api_def = api_def.unwrap();
-        // Now we can get methods (like get, post, put) contained into the api definition
-        let methods = match method {
-            ApiMethod::Get => &api_def.get,
-            ApiMethod::Post => &api_def.post,
-        };
-        if methods.is_none() { return Box::new(err(CCXTError::ApiMethodNotFound.into())) }
-        // If we're sure that the method exist looking for the wanted route
-        let route = methods.as_ref().unwrap().get(route);
-        if route.is_none() { return Box::new(err(CCXTError::ApiMethodNotFound.into())) }
-        let route = route.unwrap();
-        // So we've got te route, now we want to link our api name with the real api url
-        let api_url = self.api_urls.get(api);
-        if api_url.is_none() { return Box::new(err(CCXTError::ApiUrlNotFound.into())) }        
-        let api_url = api_url.unwrap();
-        // And we've got the Api url and the route, so let's formate it
-        let request_url = format!("{}/{}", api_url, route.get_str(params)).parse();
-        if request_url.is_err() { return Box::from(err(CCXTError::ApiUrlMalformated.into())) }
-
-        // Make the http request (lot of things TODO here)
-        let request = Request::new(request_url.unwrap(), RequestMethod::Get(Vec::new()));
-        if let Some(connector) = self.connector.as_ref() {
-            Box::from(connector.request(request))
-        } else {
-            Box::from(err(CCXTError::ApiUrlNotFound.into()))
-        }
+        let connector = try_future!(self.connector.as_ref().ok_or(CCXTError::Undefined));
+        let request = try_future!(self.parse_api_call(api, method, route, params));
+        Box::from(connector.request(request))
     }
 
     pub fn set_connector(&mut self, connector: Box<T>) {

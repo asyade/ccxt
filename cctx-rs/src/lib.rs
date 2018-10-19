@@ -12,13 +12,11 @@ extern crate tokio_reactor;
 
 extern crate failure;
 extern crate futures;
+#[macro_use]
+extern crate try_future;
 
 extern crate hyper;
 extern crate hyper_tls;
-
-use hyper::rt;
-
-use tokio::prelude::*;
 
 pub mod prelude;
 
