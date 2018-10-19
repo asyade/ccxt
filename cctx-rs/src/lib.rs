@@ -21,5 +21,6 @@ extern crate hyper_tls;
 
 pub mod prelude;
 
+#[macro_use]
 pub mod base;
 pub mod bitfinex;

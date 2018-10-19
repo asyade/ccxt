@@ -1,4 +1,5 @@
 use std::sync::Once;
+#[macro_use]
 use super::prelude::*;
 use futures::Future;
 use futures::future::{ok, err};
@@ -40,6 +41,35 @@ impl Bitfinex {
                                 "trades/{symbol}"
                             ]
                         }
+                    },
+                    "commonCurrencies": {
+                        "ABS": "ABYSS",
+                        "AIO": "AION",
+                        "ATM": "ATMI",
+                        "BCC": "CST_BCC",
+                        "BCU": "CST_BCU",
+                        "CTX": "CTXC",
+                        "DAD": "DADI",
+                        "DAT": "DATA",
+                        "DSH": "DASH",
+                        "HOT": "Hydro Protocol",
+                        "IOS": "IOST",
+                        "IOT": "IOTA",
+                        "IQX": "IQ",
+                        "MIT": "MITH",
+                        "MNA": "MANA",
+                        "NCA": "NCASH",
+                        "ORS": "ORS Group",
+                        "POY": "POLY",
+                        "QSH": "QASH",
+                        "QTM": "QTUM",
+                        "SEE": "SEER",
+                        "SNG": "SNGLS",
+                        "SPK": "SPANK",
+                        "STJ": "STORJ",
+                        "YYW": "YOYOW",
+                        "USD": "USDT",
+                        "UTN": "UTNP"
                     }
                 }
             "#).unwrap())
@@ -62,37 +92,37 @@ impl Bitfinex {
 impl ExchangeTrait for Bitfinex {
 
     fn load_markets(&mut self) -> CCXTFut<LoadMarketsResult>{
-        Box::new(self.exchange.call_api("public", ApiMethod::Get, "symbols_details", &[])
+        fn parse_markets(re: Value) -> Result<LoadMarketsResult, Error> {
+            let result = LoadMarketsResult {
+                markets: Vec::new(),
+            };
+            for market in as_array!(re, "markets")?.into_iter() {
+                let pair = as_str!(market["pair"], "market->pair")?;
+                let id = String::from(pair).to_uppercase();
+                let base_id = &pair[0..3];
+                let quote_id = &pair[3..6];
+                let symbol = format!("{}/{}", base_id, quote_id);
+                let price_precision = as_i64!(market["price_precision"], "market->precision")?;
+                let limits_amount = (as_i64_or!(market["minimum_order_size"], 0) as f64, as_i64_or!(market["maximum_order_size"], 0) as f64);
+                let limits_price = ((-price_precision).pow(10) as f64, price_precision.pow(10) as f64);
+                let limits_cost = (limits_amount.0 * limits_price.0, 0.0);
+                // result.markets.push(Market {
+                    // id,
+                    // symbol,
+                    // 
+                // });
+            }
+            Ok(result)
+        }
+        Box::from(self.exchange.call_api("public", ApiMethod::Get, "symbols_details", &[])
             .and_then(|re| {
-                //println!("{:?}", re);
-
-                if let Value::Array(markets) = re {
-                    markets.into_iter().for_each(|elem|{
-                        let pair = elem["pair"].as_str();
-                        let pair = if pair.is_none() { return } else { pair.unwrap() };
-                        if pair.len() != 6 { return }
-                        let baseId = &pair[0..3];
-                        let quoteId = &pair[3..6];
-                        let symbol = format!("{}/{}", baseId, quoteId);
-                        
-                        let price_precision = elem["price_precision"].as_str();
-                        let price_precision = if price_precision.is_none() { return } else { price_precision.unwrap() };
-
-                        println!("Quote {} Base {}", quoteId, baseId);
-                    });
+                match parse_markets(re) {
+                    Ok(result) => ok(result),
+                    Err(result) => {
+                        println!("load_markets->{}", result);
+                        err(result)
+                    },
                 }
-                let result = LoadMarketsResult{
-                    markets: HashMap::new(),
-                    // id: String::new(),
-                    // baseId: 0,
-                    // quoteId: 0,
-                    // active: true,
-                    // symbol: CCXTSymbol::Undefined,
-                    // precision: 0,
-                    // limits: (0.0,0.0),
-                    // info: Value::Null
-                };
-                ok(result)
             }))
     }
 

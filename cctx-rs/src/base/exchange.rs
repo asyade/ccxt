@@ -94,19 +94,35 @@ pub enum CCXTSymbol {
     Undefined,
 }
 
+///
+/// amount (min, max)
+/// price (min, max)
+/// cost (min, max)
+pub struct MarketLimits {
+    pub amount: (f64, f64),
+    pub price: (f64, f64),
+    pub cost: (f64, f64),
+}
+
+impl MarketLimits {
+    pub fn new(amount: (f64, f64), price: (f64, f64), cost: (f64, f64)) -> Self {
+        MarketLimits {amount, price, cost}
+    }
+}
+
 pub struct Market {
     pub id: String,
-    pub symbol: CCXTSymbol,
+    pub symbol: String,
     pub base_id: usize,
     pub quote_id: usize,
     pub active: bool,
     pub precision: (f64,f64),
-    pub limits: (f64, f64),
+    pub limits: MarketLimits,
     pub info: Value,
 }
 
 pub struct LoadMarketsResult {
-    pub markets: HashMap<String, Market>
+    pub markets: Vec<Market>
 }
 
 pub trait ExchangeTrait {
@@ -195,6 +211,7 @@ pub struct Exchange<C: Connector + Debug + Clone> {
     urls: HashMap<String, String>,
     api_urls: HashMap<String, String>,
     api: HashMap<String, ExchangeApi>,
+    common_currencies: HashMap<String, String>,
     rate_limit: Option<u32>,
     certified: bool,
 }
@@ -211,6 +228,7 @@ impl <C: Debug + Connector + Clone>Default for Exchange<C>  {
             urls: HashMap::new(),
             api_urls: HashMap::new(),
             api: HashMap::new(),
+            common_currencies: HashMap::new(),
             rate_limit: None,
             certified: false,
         }
@@ -252,6 +270,18 @@ macro_rules! as_object {
 macro_rules! as_array {
     ($val:expr, $err:expr) => (
         $val.as_array().ok_or::<Error>(CCXTLoadingError::UndefinedField{field: String::from($err)}.into())
+    );
+}
+
+macro_rules! as_i64 {
+    ($val:expr, $err:expr) => (
+        $val.as_i64().ok_or::<Error>(CCXTLoadingError::UndefinedField{field: String::from($err)}.into())
+    );
+}
+
+macro_rules! as_i64_or {
+    ($val:expr, $default:expr) => (
+        $val.as_i64().unwrap_or($default)
     );
 }
 
@@ -326,6 +356,11 @@ impl <T: Debug + Connector + Clone> Exchange<T> {
                 }
             }
             new_exchange.api.insert(String::from(key.as_ref()), newapi);
+        }
+
+        //Load copmmon currencies
+        for (key, value) in as_object!(settings["commonCurrencies"], "commonCurrencies")? {
+            new_exchange.common_currencies.insert(key.clone(), String::from(as_str!(value, "commonCurrencies->name")?));
         }
         Ok(new_exchange)
     }
