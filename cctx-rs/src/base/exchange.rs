@@ -1,7 +1,6 @@
 //!
 //! Base exchange traits that will be implemented for all plateformes
 //! 
-use super::http_connector::HttpConnector;
 use super::errors::*;
 
 use std::fmt;
@@ -98,8 +97,8 @@ pub enum CCXTSymbol {
 pub struct Market {
     pub id: String,
     pub symbol: CCXTSymbol,
-    pub baseId: usize,
-    pub quoteId: usize,
+    pub base_id: usize,
+    pub quote_id: usize,
     pub active: bool,
     pub precision: (f64,f64),
     pub limits: (f64, f64),
@@ -218,10 +217,6 @@ impl <C: Debug + Connector + Clone>Default for Exchange<C>  {
     }
 }
 
-macro_rules! value_into{
-    ($value:expr, $type: ty = String) => ($value.as_str().ok_or(CCXTError::Undefined)?)
-}
-
 impl <T>Exchange<T> where T: Connector + Debug + Clone {
 
     fn parse_api_call(&self, api: &str, method: ApiMethod, route: &str, params: &[&str]) -> Result<Request, Error> {
@@ -242,11 +237,29 @@ impl <T>Exchange<T> where T: Connector + Debug + Clone {
 
 }
 
+macro_rules! as_str {
+    ($val:expr, $err:expr) => (
+        $val.as_str().ok_or::<Error>(CCXTLoadingError::UndefinedField{field: String::from($err)}.into())
+    );
+}
+
+macro_rules! as_object {
+    ($val:expr, $err:expr) => (
+        $val.as_object().ok_or::<Error>(CCXTLoadingError::UndefinedField{field: String::from($err)}.into())
+    );
+}
+
+macro_rules! as_array {
+    ($val:expr, $err:expr) => (
+        $val.as_array().ok_or::<Error>(CCXTLoadingError::UndefinedField{field: String::from($err)}.into())
+    );
+}
+
 impl <T: Debug + Connector + Clone> Exchange<T> {
 
     pub fn call_api(&self, api: &str, method: ApiMethod, route: &str, params: &[&str]) -> ConnectorFuture<Value> {
-        let connector = try_future!(self.connector.as_ref().ok_or(CCXTError::Undefined));
-        let request = try_future!(self.parse_api_call(api, method, route, params));
+        let connector = try_future_box!(self.connector.as_ref().ok_or(CCXTError::Undefined));
+        let request = try_future_box!(self.parse_api_call(api, method, route, params));
         Box::from(connector.request(request))
     }
 
@@ -274,76 +287,45 @@ impl <T: Debug + Connector + Clone> Exchange<T> {
         let mut new_exchange = Exchange::default();
 
         println!("Generating exhcange ...");
-        //Load id
-        if !settings.is_object() { return Err(CCXTLoadingError::UndefinedField{ field: String::from("settings")}.into())}
-        if let Value::String(id) = &settings["id"] {
-            new_exchange.id = id.clone();
-        } else {
-            return Err(CCXTLoadingError::UndefinedField{ field: String::from("id")}.into())
+        as_object!(settings, "settings")?;
+        new_exchange.id = String::from(as_str!(settings["id"], "id").unwrap_or(""));
+        new_exchange.name = String::from(as_str!(settings["name"], "name").unwrap_or(""));
+
+        //Load urls
+        fn load_urls(list: &Value, output: &mut HashMap<String, String>) {
+            as_object!(list, "urls").and_then(|settings| {for (key, param) in settings.iter() {
+                as_str!(param, "urls->url").and_then(|value| {
+                    output.insert(key.clone(), String::from(value));
+                    Ok(())
+                }).is_ok();
+            } Ok(()) }).is_ok();
         }
-        //Load name
-        if let Value::String(name) = &settings["name"] {
-            new_exchange.name = name.clone();
-        } else {
-            return Err(CCXTLoadingError::UndefinedField{ field: String::from("id")}.into())
-        }
-        //Load urls 
-        if let Value::Object(urls) = &settings["urls"] {
-            urls.iter().for_each(|(k, value)| {
-                match value {
-                    Value::String(o) => {
-                        new_exchange.urls.insert(k.clone(), o.clone());
-                    },
-                    _ => {}
-                }
-            });
-        }
-        // Load api urls
-        if let Value::Object(urls) = &settings["api-urls"] {
-            urls.iter().for_each(|(k, value)| {
-                match value {
-                    Value::String(o) => {
-                        new_exchange.api_urls.insert(k.clone(), o.clone());
-                    },
-                    _ => {}
-                }
-            });
-        }
-        // Load apis
-        if let Value::Object(api) = &settings["api"] {
-            api.iter().for_each(|(k, value)| {
-                if let Value::Object(method) = value {
-                    let mut newapi = ExchangeApi::default();
-                    method.iter().for_each(|(k, routes)|{
-                        if let Value::Array(routes) = routes {
-                            let mut new_routes: HashMap<String, ExchangeApiRoute> = HashMap::new();
-                            routes.iter().for_each(|e|{
-                                if let Value::String(e) = e {
-                                    new_routes.insert(e.clone(), {
-                                        if e.contains("{") {
-                                            ExchangeApiRoute::Formatable(e.clone())
-                                        } else {
-                                            ExchangeApiRoute::Static(e.clone())
-                                        }
-                                    });
-                                }
-                            });
-                            match k.clone().as_str() {
-                                "get" => {
-                                    newapi.get = Some(new_routes);
-                                },
-                                "post" => {
-                                    newapi.post = Some(new_routes);
-                                },
-                                _ => {
-                                    println!("Invalide api : {:?}", routes)
-                                }
-                            };
+        load_urls(&settings["urls"], &mut new_exchange.urls);
+        load_urls(&settings["api-urls"], &mut new_exchange.api_urls);
+
+        //Load api
+        for (key, api) in as_object!(settings["api"], "api")? {
+            let mut newapi = ExchangeApi::default();
+            for (route_key, routes) in as_object!(api, format!("api->{}", key))? {
+                let mut newroutes: HashMap<String, ExchangeApiRoute> = HashMap::new();
+                for route in as_array!(routes, "api->method->routes")? {
+                    let route = String::from(as_str!(route, "api->method->routes->route")?); 
+                    newroutes.insert(route.clone(), {
+                        if route.contains("{") {
+                            ExchangeApiRoute::Formatable(route.clone())
+                        } else {
+                            ExchangeApiRoute::Static(route.clone())
                         }
                     });
-                    new_exchange.api.insert(k.clone(), newapi);
                 }
-            });
+                if newroutes.len() == 0 {continue;} 
+                match route_key.as_ref() {
+                    "get" => { newapi.get = Some(newroutes); },
+                    "post" => { newapi.get = Some(newroutes); },
+                    _ => { println!("Undefined api methode : {}", route_key) }
+                }
+            }
+            new_exchange.api.insert(String::from(key.as_ref()), newapi);
         }
         Ok(new_exchange)
     }
