@@ -1,10 +1,8 @@
 use std::sync::Once;
-#[macro_use]
 use super::prelude::*;
 use futures::Future;
 use futures::future::{ok, err};
 use serde_json::Value;
-use std::collections::HashMap;
 
 static INIT: Once = Once::new();
 static mut BITFINEX_EXCHANGE: Option<Exchange<HttpConnector>> = None;
@@ -93,24 +91,29 @@ impl ExchangeTrait for Bitfinex {
 
     fn load_markets(&mut self) -> CCXTFut<LoadMarketsResult>{
         fn parse_markets(re: Value) -> Result<LoadMarketsResult, Error> {
-            let result = LoadMarketsResult {
+            let mut result = LoadMarketsResult {
                 markets: Vec::new(),
             };
             for market in as_array!(re, "markets")?.into_iter() {
                 let pair = as_str!(market["pair"], "market->pair")?;
                 let id = String::from(pair).to_uppercase();
-                let base_id = &pair[0..3];
-                let quote_id = &pair[3..6];
+                let base_id = String::from(&pair[0..3]);
+                let quote_id = String::from(&pair[3..6]);
                 let symbol = format!("{}/{}", base_id, quote_id);
                 let price_precision = as_i64!(market["price_precision"], "market->precision")?;
                 let limits_amount = (as_i64_or!(market["minimum_order_size"], 0) as f64, as_i64_or!(market["maximum_order_size"], 0) as f64);
                 let limits_price = ((-price_precision).pow(10) as f64, price_precision.pow(10) as f64);
                 let limits_cost = (limits_amount.0 * limits_price.0, 0.0);
-                // result.markets.push(Market {
-                    // id,
-                    // symbol,
-                    // 
-                // });
+                result.markets.push(Market {
+                    id,
+                    symbol,
+                    base_id,
+                    quote_id,
+                    active: true,
+                    precision: (price_precision as f64, price_precision as f64),
+                    limits: MarketLimits::new(limits_amount, limits_price, limits_cost),
+                    info: Some(market.clone()),
+                });
             }
             Ok(result)
         }

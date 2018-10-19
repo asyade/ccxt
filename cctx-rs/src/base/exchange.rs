@@ -8,7 +8,6 @@ use std::fmt::{Debug, Display, Formatter};
 use std::collections::HashMap;
 use failure::Error;
 use hyper::rt::{Future};
-use futures::future::{ok, err};
 use serde_json::value::Value;
 use serde_json;
 use hyper::Uri;
@@ -35,8 +34,8 @@ pub trait RequestBody {}
 /// Http request parametter
 /// 
 pub struct RequestParam<'a> {
-    key: &'a str,
-    value: &'a str,
+    _key: &'a str,
+    _value: &'a str,
 }
 
 ///
@@ -113,12 +112,12 @@ impl MarketLimits {
 pub struct Market {
     pub id: String,
     pub symbol: String,
-    pub base_id: usize,
-    pub quote_id: usize,
+    pub base_id: String,
+    pub quote_id: String,//Todo make enum referencin all symbols
     pub active: bool,
     pub precision: (f64,f64),
     pub limits: MarketLimits,
-    pub info: Value,
+    pub info: Option<Value>,//Remove it if it's possible
 }
 
 pub struct LoadMarketsResult {
@@ -286,6 +285,10 @@ macro_rules! as_i64_or {
 }
 
 impl <T: Debug + Connector + Clone> Exchange<T> {
+
+    pub fn get_currencies(&self) -> &HashMap<String, String> {
+        return &self.common_currencies;
+    }
 
     pub fn call_api(&self, api: &str, method: ApiMethod, route: &str, params: &[&str]) -> ConnectorFuture<Value> {
         let connector = try_future_box!(self.connector.as_ref().ok_or(CCXTError::Undefined));

@@ -132,13 +132,13 @@ pub enum CCXTError {
 }
 
 impl From<HyperError> for CCXTError {
-    fn from(err: HyperError) -> CCXTError {
+    fn from(_err: HyperError) -> CCXTError {
         CCXTError::BadResponse//Maybe wrong
     }
 }
 
 impl From<SerdeError> for CCXTError {
-    fn from(err: SerdeError) -> CCXTError {
+    fn from(_err: SerdeError) -> CCXTError {
         CCXTError::BadResponse
     }
 }
