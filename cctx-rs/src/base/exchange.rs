@@ -133,11 +133,33 @@ pub struct Ohlcv {
     volume: f64,
 }
 
+#[repr(u32)]
+pub enum CandleTime {
+    _1M=1,
+    _2M=2,
+    _3M=3,
+    _4M=4,
+    _5M=5,
+    _10M=10,
+    _15M=15,
+    _20M=20,
+    _30M=30,
+    _1H=60,
+    _2H=60*2,
+    _3H=60*3,
+    _4H=60*4,
+    _5H=60*5,
+    _1D=60*24,
+    _2D=60*24*2,
+    _3D=60*24*3,
+    _1W=60*24*7,
+}
+
 pub type FetchOhlcvResult = CCXTFut<Vec<Ohlcv>>;
 pub type LoadMarketResult = CCXTFut<Arc<RwLock<Option<Vec<Market>>>>>;
 
 pub trait ExchangeTrait {
-    fn fetch_ohlcv(&self, ) -> FetchOhlcvResult;
+    //fn fetch_ohlcv(&self, ) -> FetchOhlcvResult;
     fn load_markets(&mut self) -> LoadMarketResult;
     //fn get_market(&self, symbole: &str);
     //fn fetch_markets(&self);
