@@ -1,13 +1,15 @@
-use std::sync::{Once, Arc, RwLock};
+use std::sync::{Once};//Arc, RwLock};
 use super::prelude::*;
+use std::collections::HashMap;
+use chrono::naive::NaiveDateTime;
 use futures::Future;
 use futures::future::{ok, err};
 use serde_json::Value;
-use hyper::rt;
-use std::cmp::{max, min};
+//use hyper::rt;
+//use std::cmp::{max, min};
 
 static INIT: Once = Once::new();
-static mut Bitmex_EXCHANGE: Option<Exchange<HttpConnector>> = None;
+static mut BITMEX_EXCHANGE: Option<Exchange<HttpConnector>> = None;
 
 pub struct Bitmex {
     exchange: Exchange<HttpConnector>,
@@ -18,7 +20,7 @@ impl Bitmex {
     pub fn new() -> CCXTFut<Self> {
         INIT.call_once(||{
             unsafe {
-                Bitmex_EXCHANGE = Some(Exchange::<HttpConnector>::from_json(r#"
+                BITMEX_EXCHANGE = Some(Exchange::<HttpConnector>::from_json(r#"
                 {
                     "id": "Bitmex",
                     "name": "Bitmex",
@@ -62,10 +64,10 @@ impl Bitmex {
             }
         });
         let connector = HttpConnector::new();
-        let mut exchange = unsafe {Bitmex_EXCHANGE.as_ref().unwrap().clone()};
+        let mut exchange = unsafe {BITMEX_EXCHANGE.as_ref().unwrap().clone()};
         exchange.set_connector(Box::new(connector));
         let mut exchange = Bitmex { exchange };
-        Box::from(exchange.load_markets().and_then(|_| ok(exchange)))
+        Box::from(exchange.fetch_markets().and_then(|_| ok(exchange)))
     }
 
     fn time_frame(time: CandleTime) -> &'static str {
@@ -79,8 +81,6 @@ impl Bitmex {
 
 }
 
-use std::collections::HashMap;
-use chrono::naive::NaiveDateTime;
 impl ExchangeTrait for Bitmex {
 
     fn fetch_ohlcv(&self, symbol: &str, timeframe: CandleTime, since: i64, limit: i64) -> FetchOhlcvResult {
@@ -89,12 +89,8 @@ impl ExchangeTrait for Bitmex {
         let symbol = format!("symbol={}", market.id);
         let count = format!("count={}", limit);
         let date = format!("{}", NaiveDateTime::from_timestamp(since, 0).format("%Y-%m-%dT%H:%M:%S"));
-        Box::from(get_api!(self.exchange, "public", "trade/bucketed",
-            bin_size.as_str(),
-            symbol.as_str(),
-            count.as_str(),
-            date.as_str()
-        ).and_then(move |json| {
+        Box::from(get_api!(self.exchange, "public", "trade/bucketed", bin_size.as_str(), symbol.as_str(), count.as_str(), date.as_str())
+        .and_then(move |json| {
             let mut ohlcv = Vec::<Ohlcv>::new();
             try_block!({
                 for elem in as_array!(json, "ohlcv->timestamp")? {
@@ -119,7 +115,7 @@ impl ExchangeTrait for Bitmex {
         }))
     }
 
-    fn load_markets(&mut self) -> LoadMarketResult {
+    fn fetch_markets(&mut self) -> LoadMarketResult {
         fn parse_markets(re: Value) -> Result<HashMap<String, Market>, Error> {
             let mut markets = HashMap::<String, Market>::new();
             for market in as_array!(re, "markets")?.into_iter() {
@@ -168,7 +164,7 @@ mod tests {
     use super::Bitmex;
     use futures::future;
     use futures::Future;
-    use futures::future::{ok, err};
+    //use futures::future::{ok, err};
     use crate::prelude::*;
     use crate::base::exchange::ExchangeTrait;
     #[test]
@@ -176,6 +172,9 @@ mod tests {
         rt::run(future::lazy(move||{
             Bitmex::new().and_then(|exchange| {
                 exchange.fetch_ohlcv("XBT/USD", CandleTime::_1M, 1240020225, 100)
+                    .map(|ohlcv| {
+                        println!("{:?}", ohlcv);
+                    })
             })
             .map(|_|{})
             .map_err(|_|{})

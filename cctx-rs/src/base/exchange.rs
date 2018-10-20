@@ -44,12 +44,14 @@ macro_rules! as_f64 {
     );
 }
 
+#[allow(warnings)]
 macro_rules! as_i64 {
     ($val:expr, $err:expr) => (
         $val.as_i64().ok_or::<Error>(CCXTLoadingError::UndefinedField{field: String::from($err)}.into())
     );
 }
 
+#[allow(warnings)]
 macro_rules! as_i64_or {
     ($val:expr, $default:expr) => (
         $val.as_i64().unwrap_or($default)
@@ -60,6 +62,7 @@ macro_rules! get_api {
     ($m:expr, $api:expr, $route:expr, $($params:expr), *) => ($m.call_api($api, ApiMethod::Get, $route, &[$($params),*]));
     ($m:expr, $api:expr, $route:expr) => ($m.call_api($api, ApiMethod::Get, $route, &[]));
 }
+
 
 // pub const USER_AGENTS_CHROME: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36";
 // pub const USER_AGENT_CHROME39: &str = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.71 Safari/537.36";
@@ -207,8 +210,7 @@ pub type LoadMarketResult = CCXTFut<Arc<RwLock<Option<HashMap<String, Market>>>>
 
 pub trait ExchangeTrait {
     fn fetch_ohlcv(&self, symbol: &str, timeframe: CandleTime, since: i64, limit: i64) -> FetchOhlcvResult;
-    fn load_markets(&mut self) -> LoadMarketResult;
-    //fn get_market(&self, symbole: &str);
+    fn fetch_markets(&mut self) -> LoadMarketResult;
     //fn fetch_markets(&self);
     //fn fetch_currencies(&self);
     //fn fetch_ticker(&self);

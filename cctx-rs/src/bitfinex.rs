@@ -85,7 +85,7 @@ impl Bitfinex {
         let mut exchange = unsafe {BITFINEX_EXCHANGE.as_ref().unwrap().clone()};
         exchange.set_connector(Box::new(connector));
         let mut exchange = Bitfinex { exchange };
-        Box::from(exchange.load_markets().and_then(|_| ok(exchange)))
+        Box::from(exchange.fetch_markets().and_then(|_| ok(exchange)))
     }
 
 }
@@ -111,7 +111,7 @@ impl ExchangeTrait for Bitfinex {
         }))
     }
 
-    fn load_markets(&mut self) -> LoadMarketResult {
+    fn fetch_markets(&mut self) -> LoadMarketResult {
         fn parse_markets(re: Value) -> Result<HashMap<String, Market>, Error> {
             let mut markets = HashMap::<String, Market>::new();
             for market in as_array!(re, "markets")?.into_iter() {
