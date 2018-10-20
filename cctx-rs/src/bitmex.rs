@@ -144,7 +144,7 @@ impl ExchangeTrait for Bitmex {
             Ok(markets)
         }
         let lock = self.exchange.market.clone();
-        Box::from(self.exchange.call_api("public", ApiMethod::Get, "instrument/activeAndIndices", &[])
+        Box::from(get_api!(self.exchange, "public", "instrument/activeAndIndices")
             .and_then(move |re| {
                 match parse_markets(re) {
                     Ok(result) =>{ 

@@ -57,7 +57,8 @@ macro_rules! as_i64_or {
 }
  
 macro_rules! get_api {
-    ($m:expr, $api:expr, $route:expr, $($params:expr), *) => ($m.call_api($api, ApiMethod::Get, $route, &[$($params),*]))
+    ($m:expr, $api:expr, $route:expr, $($params:expr), *) => ($m.call_api($api, ApiMethod::Get, $route, &[$($params),*]));
+    ($m:expr, $api:expr, $route:expr) => ($m.call_api($api, ApiMethod::Get, $route, &[]));
 }
 
 // pub const USER_AGENTS_CHROME: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36";
