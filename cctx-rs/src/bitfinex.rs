@@ -1,4 +1,4 @@
-use std::sync::Once;
+use std::sync::{Once, Arc, RwLock};
 use super::prelude::*;
 use futures::Future;
 use futures::future::{ok, err};
@@ -89,11 +89,9 @@ impl Bitfinex {
 
 impl ExchangeTrait for Bitfinex {
 
-    fn load_markets(&mut self) -> CCXTFut<LoadMarketsResult>{
-        fn parse_markets(re: Value) -> Result<LoadMarketsResult, Error> {
-            let mut result = LoadMarketsResult {
-                markets: Vec::new(),
-            };
+    fn load_markets(&mut self) -> LoadMarketResult {
+        fn parse_markets(re: Value) -> Result<Vec<Market>, Error> {
+            let mut markets = Vec::<Market>::new();
             for market in as_array!(re, "markets")?.into_iter() {
                 let pair = as_str!(market["pair"], "market->pair")?;
                 let id = String::from(pair).to_uppercase();
@@ -104,7 +102,7 @@ impl ExchangeTrait for Bitfinex {
                 let limits_amount = (as_i64_or!(market["minimum_order_size"], 0) as f64, as_i64_or!(market["maximum_order_size"], 0) as f64);
                 let limits_price = ((-price_precision).pow(10) as f64, price_precision.pow(10) as f64);
                 let limits_cost = (limits_amount.0 * limits_price.0, 0.0);
-                result.markets.push(Market {
+                markets.push(Market {
                     id,
                     symbol,
                     base_id,
@@ -112,15 +110,19 @@ impl ExchangeTrait for Bitfinex {
                     active: true,
                     precision: (price_precision as f64, price_precision as f64),
                     limits: MarketLimits::new(limits_amount, limits_price, limits_cost),
-                    info: Some(market.clone()),
+                    info: None,
                 });
             }
-            Ok(result)
+            Ok(markets)
         }
+        let lock = self.exchange.market.clone();
         Box::from(self.exchange.call_api("public", ApiMethod::Get, "symbols_details", &[])
-            .and_then(|re| {
+            .and_then(move |re| {
                 match parse_markets(re) {
-                    Ok(result) => ok(result),
+                    Ok(result) =>{ 
+                        *lock.write().unwrap() = Some(result.clone());
+                        ok(lock)
+                    },
                     Err(result) => {
                         println!("load_markets->{}", result);
                         err(result)

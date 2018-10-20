@@ -12,6 +12,7 @@ use serde_json::value::Value;
 use serde_json;
 use hyper::Uri;
 use hyper;
+use std::sync::{Arc, RwLock};
 
 // pub const USER_AGENTS_CHROME: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36";
 // pub const USER_AGENT_CHROME39: &str = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.71 Safari/537.36";
@@ -97,6 +98,7 @@ pub enum CCXTSymbol {
 /// amount (min, max)
 /// price (min, max)
 /// cost (min, max)
+#[derive(Debug, Clone)]
 pub struct MarketLimits {
     pub amount: (f64, f64),
     pub price: (f64, f64),
@@ -109,6 +111,7 @@ impl MarketLimits {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Market {
     pub id: String,
     pub symbol: String,
@@ -120,18 +123,27 @@ pub struct Market {
     pub info: Option<Value>,//Remove it if it's possible
 }
 
-pub struct LoadMarketsResult {
-    pub markets: Vec<Market>
+#[derive(Debug, Clone)]
+pub struct Ohlcv {
+    timestamp: i64,
+    open_price: f64,
+    highest_price: f64,
+    lowest_price: f64,
+    losing_price: f64,
+    volume: f64,
 }
 
+pub type FetchOhlcvResult = CCXTFut<Vec<Ohlcv>>;
+pub type LoadMarketResult = CCXTFut<Arc<RwLock<Option<Vec<Market>>>>>;
+
 pub trait ExchangeTrait {
+    fn fetch_ohlcv(&self, ) -> FetchOhlcvResult;
+    fn load_markets(&mut self) -> LoadMarketResult;
     //fn get_market(&self, symbole: &str);
-    fn load_markets(&mut self) -> CCXTFut<LoadMarketsResult>;
     //fn fetch_markets(&self);
     //fn fetch_currencies(&self);
     //fn fetch_ticker(&self);
     //fn fetch_order_book(&self);
-    //fn fetch_ohlcv(&self);
     //fn fetch_treads(&self);
 }
 
@@ -212,6 +224,7 @@ pub struct Exchange<C: Connector + Debug + Clone> {
     api: HashMap<String, ExchangeApi>,
     common_currencies: HashMap<String, String>,
     rate_limit: Option<u32>,
+    pub market: Arc<RwLock<Option<Vec<Market>>>>,
     certified: bool,
 }
 
@@ -226,6 +239,7 @@ impl <C: Debug + Connector + Clone>Default for Exchange<C>  {
             countries: Vec::new(),
             urls: HashMap::new(),
             api_urls: HashMap::new(),
+            market: Arc::new(RwLock::new(None)),
             api: HashMap::new(),
             common_currencies: HashMap::new(),
             rate_limit: None,
