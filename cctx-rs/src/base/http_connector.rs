@@ -32,11 +32,20 @@ impl From<CCXTError> for Box<Error> {
 
 impl Connector for HttpConnector {
     fn request(&self, request: Request) -> ConnectorFuture<Value> {
-        println!("@@ Send -> {:?}", request.path);
         Box::new(match request.method {
-            _ => {
+            RequestMethod::Get(params) => {
+                let mut concat = format!("{}?", request.path);
+                for (index, param) in params.iter().enumerate() {
+                    if index == params.len() - 1 {
+                        concat.push_str(param);
+                    } else {
+                        concat.push_str(format!("{}&", param).as_str());
+                    }
+                }
+                println!("@@ Send -> {:?}", concat);
+                let concat = concat.parse();//IMPORTRTANT NOT UNWRAP
                 self.client
-                        .get(request.path)
+                        .get(concat.unwrap_or_default())
                         .and_then(|res| res.into_body().concat2())
                         .map_err(|e| {
                             println!("@@ Send error : {}", e);
@@ -48,6 +57,7 @@ impl Connector for HttpConnector {
                             CCXTError::ApiUrlMalformated.into()
                         })
             }
+            _ => unimplemented!()
         })
     }
 }

@@ -26,6 +26,13 @@ impl Bitfinex {
                         "private": "https://api.bitfinex.com/v1"
                     },
                     "api": {
+                        'v2': {
+                            'get': [
+                                'candles/trade:{timeframe}:{symbol}/{section}',
+                                'candles/trade:{timeframe}:{symbol}/last',
+                                'candles/trade:{timeframe}:{symbol}/hist'
+                            ]
+                        },
                         "public": {
                             "get": [
                                 "book/{symbol}",
@@ -89,11 +96,24 @@ impl Bitfinex {
     // };
 // }
 
+use std::collections::HashMap;
 impl ExchangeTrait for Bitfinex {
 
+    fn fetch_ohlcv(&self, symbol: &str, timeframe: CandleTime, since: i64, limit: i64) -> FetchOhlcvResult {
+        let market = self.exchange.get_market_by_symbol(symbol).unwrap();//TODO not unwrap
+        let limit = format!("limit={}", limit);
+        let since = format!("since={}", since);
+        let v2id = format!("t{}", market.id);
+        Box::from(self.exchange.call_api("public", ApiMethod::Get, "candles/trade:timeframe:symbol/section", &[limit.as_str(), since.as_str()]).and_then(move |json| {
+            let ohlcv = Vec::<Ohlcv>::new();
+            
+            ok(ohlcv)
+        }))
+    }
+
     fn load_markets(&mut self) -> LoadMarketResult {
-        fn parse_markets(re: Value) -> Result<Vec<Market>, Error> {
-            let mut markets = Vec::<Market>::new();
+        fn parse_markets(re: Value) -> Result<HashMap<String, Market>, Error> {
+            let mut markets = HashMap::<String, Market>::new();
             for market in as_array!(re, "markets")?.into_iter() {
                 let pair = as_str!(market["pair"], "market->pair")?;
                 let id = String::from(pair).to_uppercase();
@@ -104,7 +124,7 @@ impl ExchangeTrait for Bitfinex {
                 let limits_amount = (as_i64_or!(market["minimum_order_size"], 0) as f64, as_i64_or!(market["maximum_order_size"], 0) as f64);
                 let limits_price = ((-price_precision).pow(10) as f64, price_precision.pow(10) as f64);
                 let limits_cost = (limits_amount.0 * limits_price.0, 0.0);
-                markets.push(Market {
+                markets.insert(symbol.clone(), Market {
                     id,
                     symbol,
                     base_id,
@@ -122,11 +142,10 @@ impl ExchangeTrait for Bitfinex {
             .and_then(move |re| {
                 match parse_markets(re) {
                     Ok(result) =>{ 
-                        *lock.write().unwrap() = Some(result.clone());
+                        *lock.write().unwrap() = Some(result);
                         ok(lock)
                     },
                     Err(result) => {
-                        println!("load_markets->{}", result);
                         err(result)
                     },
                 }
@@ -143,14 +162,16 @@ mod tests {
     use futures::future;
     use futures::Future;
     use futures::future::{ok, err};
-    //use crate::base::exchange::ExchangeTrait;
+    use crate::prelude::*;
+    use crate::base::exchange::ExchangeTrait;
     #[test]
     fn test_plateform() {
         rt::run(future::lazy(move||{
             Bitfinex::new().and_then(|exchange| {
                 println!("New bitfined exhange\nMarket : {:?}", exchange.exchange.market);
-                ok(())
-            }).map(|_|{})
+                exchange.fetch_ohlcv("omg/usd", CandleTime::_1M, 10, 100)
+            })
+            .map(|_|{})
             .map_err(|_|{})
         }));
     }

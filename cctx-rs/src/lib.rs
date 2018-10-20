@@ -4,6 +4,7 @@
 
 extern crate serde_derive;
 extern crate serde_json;
+extern crate chrono;
 
 extern crate tokio;
 extern crate tokio_core;
@@ -21,4 +22,5 @@ pub mod prelude;
 
 #[macro_use]
 pub mod base;
-pub mod bitfinex;
+//pub mod bitfinex;
+pub mod bitmex;

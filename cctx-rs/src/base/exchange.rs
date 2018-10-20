@@ -14,6 +14,47 @@ use hyper::Uri;
 use hyper;
 use std::sync::{Arc, RwLock};
 
+macro_rules! try_block {
+    ($block:block) => (
+        (|| -> Result<(), Error> { $block;  Ok(()) })().is_ok()
+    );
+}
+
+macro_rules! as_str {
+    ($val:expr, $err:expr) => (
+        $val.as_str().ok_or::<Error>(CCXTLoadingError::UndefinedField{field: String::from($err)}.into())
+    );
+}
+
+macro_rules! as_object {
+    ($val:expr, $err:expr) => (
+        $val.as_object().ok_or::<Error>(CCXTLoadingError::UndefinedField{field: String::from($err)}.into())
+    );
+}
+
+macro_rules! as_array {
+    ($val:expr, $err:expr) => (
+        $val.as_array().ok_or::<Error>(CCXTLoadingError::UndefinedField{field: String::from($err)}.into())
+    );
+}
+
+macro_rules! as_f64 {
+    ($val:expr, $err:expr) => (
+        $val.as_f64().ok_or::<Error>(CCXTLoadingError::UndefinedField{field: String::from($err)}.into())
+    );
+}
+
+macro_rules! as_i64 {
+    ($val:expr, $err:expr) => (
+        $val.as_i64().ok_or::<Error>(CCXTLoadingError::UndefinedField{field: String::from($err)}.into())
+    );
+}
+
+macro_rules! as_i64_or {
+    ($val:expr, $default:expr) => (
+        $val.as_i64().unwrap_or($default)
+    );
+}
 // pub const USER_AGENTS_CHROME: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36";
 // pub const USER_AGENT_CHROME39: &str = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.71 Safari/537.36";
 // 
@@ -43,7 +84,7 @@ pub struct RequestParam<'a> {
 /// Http request type enum with is parametters
 /// 
 pub enum RequestMethod<'a> {
-    Get(Vec<RequestParam<'a>>),
+    Get(Vec<String>),
     Post(Vec<RequestParam<'a>>, &'a RequestBody),
 }
 
@@ -125,12 +166,12 @@ pub struct Market {
 
 #[derive(Debug, Clone)]
 pub struct Ohlcv {
-    timestamp: i64,
-    open_price: f64,
-    highest_price: f64,
-    lowest_price: f64,
-    losing_price: f64,
-    volume: f64,
+    pub timestamp: i64,
+    pub open: f64,
+    pub highest: f64,
+    pub lowest: f64,
+    pub losing: f64,
+    pub volume: f64,
 }
 
 #[repr(u32)]
@@ -156,10 +197,10 @@ pub enum CandleTime {
 }
 
 pub type FetchOhlcvResult = CCXTFut<Vec<Ohlcv>>;
-pub type LoadMarketResult = CCXTFut<Arc<RwLock<Option<Vec<Market>>>>>;
+pub type LoadMarketResult = CCXTFut<Arc<RwLock<Option<HashMap<String, Market>>>>>;
 
 pub trait ExchangeTrait {
-//   fn fetch_ohlcv(&self, ) -> FetchOhlcvResult;
+    fn fetch_ohlcv(&self, symbol: &str, timeframe: CandleTime, since: i64, limit: i64) -> FetchOhlcvResult;
     fn load_markets(&mut self) -> LoadMarketResult;
     //fn get_market(&self, symbole: &str);
     //fn fetch_markets(&self);
@@ -244,14 +285,18 @@ pub struct Exchange<C: Connector + Debug + Clone> {
     urls: HashMap<String, String>,
     api_urls: HashMap<String, String>,
     api: HashMap<String, ExchangeApi>,
-    common_currencies: HashMap<String, String>,
+    pub common_currencies: HashMap<String, String>,
     rate_limit: Option<u32>,
-    pub market: Arc<RwLock<Option<Vec<Market>>>>,
+    pub market: Arc<RwLock<Option<HashMap<String, Market>>>>,
     certified: bool,
 }
 
 impl <C: Debug + Connector + Clone>Default for Exchange<C>  {
     fn default() -> Exchange<C>{
+        let mut currencies: HashMap<String, String> = HashMap::new();
+        currencies.insert("XBT".into(), "BTC".into());
+        currencies.insert("BCC".into(), "BCH".into());
+        currencies.insert("DRK".into(), "DASH".into());
         Exchange {
             ///@TODO Non parsed value, will be deleted
             connector: None,
@@ -284,43 +329,25 @@ impl <T>Exchange<T> where T: Connector + Debug + Clone {
             .ok_or(CCXTError::ApiMethodNotFound)?;
 
         let api_url = self.api_urls.get(api).ok_or(CCXTError::ApiUrlNotFound)?;
+        let get_param_count = api_url.chars().filter(|c| *c == '{').count();
         let url = format!("{}/{}", api_url, method.get_str(params)).parse()?;
-        Ok(Request::new(url, RequestMethod::Get(Vec::new())))
+        let mut get = Vec::new();
+        for param in params[get_param_count..].iter() {
+            get.push(String::from(*param));
+        }
+        Ok(Request::new(url, RequestMethod::Get(get)))
     }
 
 }
 
-macro_rules! as_str {
-    ($val:expr, $err:expr) => (
-        $val.as_str().ok_or::<Error>(CCXTLoadingError::UndefinedField{field: String::from($err)}.into())
-    );
-}
 
-macro_rules! as_object {
-    ($val:expr, $err:expr) => (
-        $val.as_object().ok_or::<Error>(CCXTLoadingError::UndefinedField{field: String::from($err)}.into())
-    );
-}
-
-macro_rules! as_array {
-    ($val:expr, $err:expr) => (
-        $val.as_array().ok_or::<Error>(CCXTLoadingError::UndefinedField{field: String::from($err)}.into())
-    );
-}
-
-macro_rules! as_i64 {
-    ($val:expr, $err:expr) => (
-        $val.as_i64().ok_or::<Error>(CCXTLoadingError::UndefinedField{field: String::from($err)}.into())
-    );
-}
-
-macro_rules! as_i64_or {
-    ($val:expr, $default:expr) => (
-        $val.as_i64().unwrap_or($default)
-    );
-}
 
 impl <T: Debug + Connector + Clone> Exchange<T> {
+
+    pub fn get_market_by_symbol(&self, symbol: &str) -> Option<Market> {
+        let market = self.market.read().unwrap();
+        market.as_ref().unwrap().get(symbol).and_then(|elem|Some(elem.clone()))
+    }
 
     pub fn get_currencies(&self) -> &HashMap<String, String> {
         return &self.common_currencies;
@@ -379,7 +406,7 @@ impl <T: Debug + Connector + Clone> Exchange<T> {
                 let mut newroutes: HashMap<String, ExchangeApiRoute> = HashMap::new();
                 for route in as_array!(routes, "api->method->routes")? {
                     let route = String::from(as_str!(route, "api->method->routes->route")?); 
-                    newroutes.insert(route.clone(), {
+                    newroutes.insert(route.clone().replace("{", "").replace("}", ""), {
                         if route.contains("{") {
                             ExchangeApiRoute::Formatable(route.clone())
                         } else {
