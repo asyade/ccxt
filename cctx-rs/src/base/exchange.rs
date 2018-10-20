@@ -159,7 +159,7 @@ pub type FetchOhlcvResult = CCXTFut<Vec<Ohlcv>>;
 pub type LoadMarketResult = CCXTFut<Arc<RwLock<Option<Vec<Market>>>>>;
 
 pub trait ExchangeTrait {
-    //fn fetch_ohlcv(&self, ) -> FetchOhlcvResult;
+//   fn fetch_ohlcv(&self, ) -> FetchOhlcvResult;
     fn load_markets(&mut self) -> LoadMarketResult;
     //fn get_market(&self, symbole: &str);
     //fn fetch_markets(&self);

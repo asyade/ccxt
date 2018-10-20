@@ -3,6 +3,7 @@ use super::prelude::*;
 use futures::Future;
 use futures::future::{ok, err};
 use serde_json::Value;
+use hyper::rt;
 
 static INIT: Once = Once::new();
 static mut BITFINEX_EXCHANGE: Option<Exchange<HttpConnector>> = None;
@@ -13,7 +14,7 @@ pub struct Bitfinex {
 
 impl Bitfinex {
 
-    pub fn new() -> Self {
+    pub fn new() -> CCXTFut<Self> {
         INIT.call_once(||{
             unsafe {
                 BITFINEX_EXCHANGE = Some(Exchange::<HttpConnector>::from_json(r#"
@@ -76,7 +77,8 @@ impl Bitfinex {
         let connector = HttpConnector::new();
         let mut exchange = unsafe {BITFINEX_EXCHANGE.as_ref().unwrap().clone()};
         exchange.set_connector(Box::new(connector));
-        Bitfinex { exchange }
+        let mut exchange = Bitfinex { exchange };
+        Box::from(exchange.load_markets().and_then(|_| ok(exchange)))
     }
 
 }
@@ -140,15 +142,16 @@ mod tests {
     use super::Bitfinex;
     use futures::future;
     use futures::Future;
-    use crate::base::exchange::ExchangeTrait;
+    use futures::future::{ok, err};
+    //use crate::base::exchange::ExchangeTrait;
     #[test]
     fn test_plateform() {
-        let mut exchange: Bitfinex = Bitfinex::new();
-
         rt::run(future::lazy(move||{
-            exchange.load_markets()
-                    .map(|_|{})
-                    .map_err(|_|{})
+            Bitfinex::new().and_then(|exchange| {
+                println!("New bitfined exhange\nMarket : {:?}", exchange.exchange.market);
+                ok(())
+            }).map(|_|{})
+            .map_err(|_|{})
         }));
     }
 }
