@@ -81,7 +81,6 @@ impl Bitmex {
 
 use std::collections::HashMap;
 use chrono::naive::NaiveDateTime;
-
 impl ExchangeTrait for Bitmex {
 
     fn fetch_ohlcv(&self, symbol: &str, timeframe: CandleTime, since: i64, limit: i64) -> FetchOhlcvResult {
@@ -90,12 +89,12 @@ impl ExchangeTrait for Bitmex {
         let symbol = format!("symbol={}", market.id);
         let count = format!("count={}", limit);
         let date = format!("{}", NaiveDateTime::from_timestamp(since, 0).format("%Y-%m-%dT%H:%M:%S"));
-        Box::from(self.exchange.call_api("public", ApiMethod::Get, "trade/bucketed", &[
+        Box::from(get_api!(self.exchange, "public", "trade/bucketed",
             bin_size.as_str(),
             symbol.as_str(),
             count.as_str(),
-            date.as_str(),
-        ]).and_then(move |json| {
+            date.as_str()
+        ).and_then(move |json| {
             let mut ohlcv = Vec::<Ohlcv>::new();
             try_block!({
                 for elem in as_array!(json, "ohlcv->timestamp")? {

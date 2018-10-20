@@ -55,6 +55,11 @@ macro_rules! as_i64_or {
         $val.as_i64().unwrap_or($default)
     );
 }
+ 
+macro_rules! get_api {
+    ($m:expr, $api:expr, $route:expr, $($params:expr), *) => ($m.call_api($api, ApiMethod::Get, $route, &[$($params),*]))
+}
+
 // pub const USER_AGENTS_CHROME: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36";
 // pub const USER_AGENT_CHROME39: &str = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.71 Safari/537.36";
 // 
