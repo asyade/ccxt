@@ -104,6 +104,31 @@ impl Bitmex {
         });
         Box::from(ok(ohlcv))
     }
+
+    fn parse_markets(re: Value) -> Result<HashMap<String, Market>, Error> {
+    let mut markets = HashMap::<String, Market>::new();
+    for market in as_array!(re, "markets")?.into_iter() {
+        try_block!({
+            let id: String = as_str!(market["symbol"], "market->symbol")?.into();
+            let base_id = as_str!(market["underlying"], "market->base_id")?;
+            let quote_id = as_str!(market["quoteCurrency"], "market->quote_id")?;
+            let basequote = format!("{}{}", base_id, quote_id);
+            let symbol = if id == basequote { format!("{}/{}", base_id, quote_id) } else { id.clone() };
+            markets.insert(symbol.clone(), Market {
+                id,
+                symbol,
+                base_id: base_id.into(),
+                quote_id: quote_id.into(),
+                active: as_str!(market["state"], "market->state")? != "Unlisted",
+                precision: (0.0, 0.0),
+                limits: MarketLimits::new((0.0, 0.0), (0.0, 0.0), (0.0, 0.0)),
+                info: None,
+            });
+        });
+    }
+    Ok(markets)
+}
+
 }
 
 impl ExchangeTrait for Bitmex {
@@ -123,33 +148,10 @@ impl ExchangeTrait for Bitmex {
     }
 
     fn fetch_markets(&mut self) -> LoadMarketResult {
-        fn parse_markets(re: Value) -> Result<HashMap<String, Market>, Error> {
-            let mut markets = HashMap::<String, Market>::new();
-            for market in as_array!(re, "markets")?.into_iter() {
-                try_block!({
-                    let id: String = as_str!(market["symbol"], "market->symbol")?.into();
-                    let base_id = as_str!(market["underlying"], "market->base_id")?;
-                    let quote_id = as_str!(market["quoteCurrency"], "market->quote_id")?;
-                    let basequote = format!("{}{}", base_id, quote_id);
-                    let symbol = if id == basequote { format!("{}/{}", base_id, quote_id) } else { id.clone() };
-                    markets.insert(symbol.clone(), Market {
-                        id,
-                        symbol,
-                        base_id: base_id.into(),
-                        quote_id: quote_id.into(),
-                        active: as_str!(market["state"], "market->state")? != "Unlisted",
-                        precision: (0.0, 0.0),
-                        limits: MarketLimits::new((0.0, 0.0), (0.0, 0.0), (0.0, 0.0)),
-                        info: None,
-                    });
-                });
-            }
-            Ok(markets)
-        }
         let lock = self.exchange.market.clone();
         Box::from(get_api!(self.exchange, "public", "instrument/activeAndIndices")
             .and_then(move |re| {
-                match parse_markets(re) {
+                match Self::parse_markets(re) {
                     Ok(result) =>{ 
                         *lock.write().unwrap() = Some(result);
                         ok(lock)
