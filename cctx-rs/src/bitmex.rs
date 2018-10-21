@@ -58,6 +58,7 @@ impl Bitmex {
                         }
                     },
                     "commonCurrencies": {
+                        "BTC/USD": "XBTUSD"
                     }
                 }
             "#).unwrap())
@@ -83,18 +84,19 @@ impl Bitmex {
 
 impl ExchangeTrait for Bitmex {
 
-    fn fetch_ohlcv(&self, symbol: &str, timeframe: CandleTime, since: i64, limit: i64) -> FetchOhlcvResult {
+    fn fetch_ohlcv(&self, symbol: &str, timeframe: CandleTime, since: u64, limit: u64) -> FetchOhlcvResult {
         let market = self.exchange.get_market_by_symbol(symbol).unwrap();//TODO not unwrap
         let bin_size = format!("binSize={}", Self::time_frame(timeframe));
         let symbol = format!("symbol={}", market.id);
         let count = format!("count={}", limit);
-        let date = format!("{}", NaiveDateTime::from_timestamp(since, 0).format("%Y-%m-%dT%H:%M:%S"));
+        let date = format!("startTime={}", NaiveDateTime::from_timestamp((since / 1000) as i64, 0).format("%m-%d-%y%%20%H:%M"));
         Box::from(get_api!(self.exchange, "public", "trade/bucketed", bin_size.as_str(), symbol.as_str(), count.as_str(), date.as_str())
         .and_then(move |json| {
             let mut ohlcv = Vec::<Ohlcv>::new();
             try_block!({
                 for elem in as_array!(json, "ohlcv->timestamp")? {
                     let time =as_str!(elem["timestamp"], "ohlcv->timestamp")?;
+                    println!("{}", time);
                     let timestamp = NaiveDateTime::parse_from_str(time, "%Y-%m-%dT%H:%M:%S.000Z")?;
                     let open = as_f64!(elem["open"], "ohlcv->open")?;
                     let highest = as_f64!(elem["high"], "ohlcv->high")?;
@@ -102,7 +104,7 @@ impl ExchangeTrait for Bitmex {
                     let losing = as_f64!(elem["close"], "ohlcv->close")?;
                     let volume = as_f64!(elem["volume"], "ohlcv->volume")?;
                     ohlcv.push(Ohlcv{
-                        timestamp: timestamp.timestamp(),
+                        timestamp: timestamp.timestamp() * 1000,
                         open,
                         highest,
                         lowest,

@@ -34,7 +34,7 @@ impl Connector for HttpConnector {
     fn request(&self, request: Request) -> ConnectorFuture<Value> {
         Box::new(match request.method {
             RequestMethod::Get(params) => {
-                let mut concat = format!("{}?", request.path);
+                let mut concat = if params.len() > 0 { format!("{}?", request.path) } else { format!("{}", request.path) };
                 for (index, param) in params.iter().enumerate() {
                     if index == params.len() - 1 {
                         concat.push_str(param);

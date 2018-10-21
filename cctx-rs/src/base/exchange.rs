@@ -209,7 +209,7 @@ pub type FetchOhlcvResult = CCXTFut<Vec<Ohlcv>>;
 pub type LoadMarketResult = CCXTFut<Arc<RwLock<Option<HashMap<String, Market>>>>>;
 
 pub trait ExchangeTrait {
-    fn fetch_ohlcv(&self, symbol: &str, timeframe: CandleTime, since: i64, limit: i64) -> FetchOhlcvResult;
+    fn fetch_ohlcv(&self, symbol: &str, timeframe: CandleTime, since: u64, limit: u64) -> FetchOhlcvResult;
     fn fetch_markets(&mut self) -> LoadMarketResult;
     //fn fetch_markets(&self);
     //fn fetch_currencies(&self);
