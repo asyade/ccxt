@@ -58,7 +58,6 @@ impl Bitmex {
                         }
                     },
                     "commonCurrencies": {
-                        "BTC/USD": "XBTUSD"
                     }
                 }
             "#).unwrap())
@@ -85,7 +84,6 @@ impl Bitmex {
         try_block!({
             for elem in as_array!(json, "ohlcv->timestamp")? {
                 let time =as_str!(elem["timestamp"], "ohlcv->timestamp")?;
-                println!("{}", time);
                 let timestamp = NaiveDateTime::parse_from_str(time, "%Y-%m-%dT%H:%M:%S.000Z")?;
                 let open = as_f64!(elem["open"], "ohlcv->open")?;
                 let highest = as_f64!(elem["high"], "ohlcv->high")?;
@@ -106,34 +104,31 @@ impl Bitmex {
     }
 
     fn parse_markets(re: Value) -> Result<HashMap<String, Market>, Error> {
-    let mut markets = HashMap::<String, Market>::new();
-    for market in as_array!(re, "markets")?.into_iter() {
-        try_block!({
-            let id: String = as_str!(market["symbol"], "market->symbol")?.into();
-            let base_id = as_str!(market["underlying"], "market->base_id")?;
-            let quote_id = as_str!(market["quoteCurrency"], "market->quote_id")?;
-            let basequote = format!("{}{}", base_id, quote_id);
-            let symbol = if id == basequote { format!("{}/{}", base_id, quote_id) } else { id.clone() };
-            markets.insert(symbol.clone(), Market {
-                id,
-                symbol,
-                base_id: base_id.into(),
-                quote_id: quote_id.into(),
-                active: as_str!(market["state"], "market->state")? != "Unlisted",
-                precision: (0.0, 0.0),
-                limits: MarketLimits::new((0.0, 0.0), (0.0, 0.0), (0.0, 0.0)),
-                info: None,
+        let mut markets = HashMap::<String, Market>::new();
+        for market in as_array!(re, "markets")?.into_iter() {
+            try_block!({
+                let id: String = as_str!(market["symbol"], "market->symbol")?.into();
+                let base_id = as_str!(market["underlying"], "market->base_id")?;
+                let quote_id = as_str!(market["quoteCurrency"], "market->quote_id")?;
+                let basequote = format!("{}{}", base_id, quote_id);
+                let symbol = if id == basequote { format!("{}/{}", base_id, quote_id) } else { id.clone() };
+                markets.insert(symbol.clone(), Market {
+                    id,
+                    symbol,
+                    base_id: base_id.into(),
+                    quote_id: quote_id.into(),
+                    active: as_str!(market["state"], "market->state")? != "Unlisted",
+                    precision: (0.0, 0.0),
+                    limits: MarketLimits::new((0.0, 0.0), (0.0, 0.0), (0.0, 0.0)),
+                    info: None,
+                });
             });
-        });
+        }
+        Ok(markets)
     }
-    Ok(markets)
-}
-
 }
 
 impl ExchangeTrait for Bitmex {
-
-
     fn fetch_ohlcv(&self, symbol: &str, timeframe: CandleTime, since: u64, limit: u64) -> FetchOhlcvResult {
         let market = self.exchange.get_market_by_symbol(symbol).unwrap();//TODO not unwrap
         let bin_size = format!("binSize={}", Self::time_frame(timeframe));
@@ -163,7 +158,6 @@ impl ExchangeTrait for Bitmex {
                 }
             }))
     }
-
 }
 
 
